@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Zappo Logo](./public/logo.svg)
+![Zappo Logo](./public/logo192.png)
 
 **Cliente desktop moderno, leve e ultrarrápido para WhatsApp construído com Tauri v2, Rust e React 19.**
 
@@ -77,32 +77,42 @@
 
 ## 📋 Roadmap / A Fazer (TODO)
 
-Lista de melhorias e novas funcionalidades planejadas para as próximas versões:
+Lista de melhorias, correções e novas funcionalidades planejadas para as próximas versões:
 
-- [ ] Consertar nomes dos grupos
-- [ ] Puxar foto de perfil de pessoas e grupos
-- [ ] Adicionar possibilidade de incluir legendas em mídias e documentos
-- [ ] Adicionar opção de abrir imagem (ampliar após o clique)
-- [ ] Puxar figurinhas favoritas
-- [ ] Adicionar figurinhas aos favoritos
-- [ ] Criar figurinhas a partir de vídeo
-- [ ] Corrigir erro de mensagens fantasmas em grupos
-- [ ] Adicionar opção de sair do grupo
-- [ ] Adicionar opções para ver membros do grupo
-- [ ] Adicionar opções para adicionar pessoas no grupo (inclusive pessoas que não temos o contato, apenas pelo número)
-- [ ] Corrigir sincronização de limpeza de chat
-- [ ] Corrigir download automático desativado de mídias
-- [ ] Permitir visualização de PDF
-- [ ] Permitir edição básica de imagem antes de enviá-la (recorte, rabisco, adição de texto)
-- [ ] Permitir a visualização de status
-- [ ] Permitir a publicação de status
-- [ ] Permitir o envio e resposta de enquetes
-- [ ] Permitir o markdown do whatsapp e links
-- [ ] Buscar metadados dos links (e foto)
-- [ ] Permitir visualização de mensagens de canais
-- [ ] Permitir o envio de mensagens de visualização única
-- [ ] Mostrar a foto, o nome e o número do autor da mensagem enviada no grupo
-- [ ] Permitir exclusão e edição das mensagens
+### 💬 Mensagens e Conversas
+
+- [ ] **Sincronização de Grupos:** Corrigir a identificação e exibição dos nomes corretos dos grupos.
+- [ ] **Identificação em Grupos:** Exibir foto de perfil, nome e número de telefone do autor de cada mensagem enviada no grupo.
+- [ ] **Mensagens Fantasmas:** Corrigir anomalia de mensagens fantasmas ou duplicadas em conversas em grupo.
+- [ ] **Gerenciamento de Mensagens:** Permitir exclusão (para mim e para todos) e edição de mensagens enviadas.
+- [ ] **Formatação & Links:** Suporte completo à formatação Markdown do WhatsApp (_negrito_, _itálico_, ~tachado~, `código`) e detecção de links clicáveis.
+- [ ] **Prévia de Links:** Buscar e exibir metadados ricos (título, descrição e imagem de capa) ao compartilhar links.
+- [ ] **Enquetes:** Suporte para envio, visualização e votação em enquetes.
+- [ ] **Mensagens de Visualização Única:** Permitir o envio e a visualização de mídias temporárias (_view once_).
+- [ ] **Canais de Transmissão:** Permitir acompanhamento e visualização de mensagens em canais oficiais.
+- [ ] **Sincronização de Limpeza:** Aprimorar a sincronização ao limpar e excluir conversas junto aos servidores do WhatsApp.
+
+### 👥 Gestão de Grupos e Contatos
+
+- [ ] **Fotos de Perfil:** Carregar fotos de perfil de contatos e grupos com armazenamento em cache local.
+- [ ] **Membros do Grupo:** Visualizar a lista detalhada de participantes e administradores do grupo.
+- [ ] **Adicionar Participantes:** Adicionar membros ao grupo, inclusive pessoas que não estejam salvas na agenda (diretamente pelo número).
+- [ ] **Sair de Grupos:** Adicionar opções para sair de grupos e silenciar notificações.
+
+### 🖼️ Mídias, Figurinhas e Documentos
+
+- [ ] **Legendas em Anexos:** Adicionar suporte à inclusão de legendas personalizadas em fotos, vídeos e documentos.
+- [ ] **Visualizador de Imagens (Lightbox):** Permitir clicar na imagem para expandi-la em tela cheia com zoom e navegação.
+- [ ] **Editor de Imagens:** Ferramentas básicas de edição antes do envio (recorte, rabisco/desenho livre e inserção de textos).
+- [ ] **Visualizador de PDF:** Prévia e leitura integrada de documentos PDF diretamente no aplicativo.
+- [ ] **Figurinhas Favoritas:** Sincronizar figurinhas favoritas da conta e permitir favoritar novas figurinhas recebidas.
+- [ ] **Criação de Figurinhas por Vídeo:** Criar figurinhas animadas a partir de trechos de vídeo ou GIFs.
+- [ ] **Download Automático:** Corrigir e refinar a desativação do download automático de mídias de acordo com as preferências do usuário.
+
+### 📢 Status e Atualizações
+
+- [ ] **Visualização de Status:** Visualizar postagens de status de contatos (fotos, vídeos e textos).
+- [ ] **Publicação de Status:** Permitir a postagem de novas atualizações de status diretamente pelo aplicativo.
 
 ---
 
