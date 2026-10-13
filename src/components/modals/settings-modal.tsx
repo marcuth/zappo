@@ -1,4 +1,13 @@
-import { LuCpu, LuDownload, LuMoon, LuSettings, LuSun } from "react-icons/lu"
+import {
+    LuCpu,
+    LuDownload,
+    LuHardDrive,
+    LuMoon,
+    LuPalette,
+    LuSettings,
+    LuSun,
+    LuZap,
+} from "react-icons/lu"
 
 import {
     Dialog,
@@ -7,9 +16,9 @@ import {
     DialogHeader,
     DialogTitle,
 } from "../ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import { useAccount } from "../providers/account-provider"
 import { useTheme } from "../providers/theme-provider"
-import { Separator } from "../ui/separator"
 import { Switch } from "../ui/switch"
 import { Badge } from "../ui/badge"
 
@@ -51,41 +60,63 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl max-h-[85vh] overflow-y-auto">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-xl max-h-[85vh] flex flex-col p-6 overflow-hidden">
+                <DialogHeader className="shrink-0 pb-1">
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <LuSettings className="h-5 w-5 text-primary" />
-                        <span>Configurações & Download Seletivo</span>
+                        <span>Configurações</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs">
-                        Personalize o download automático de mídias e
-                        otimizações de desempenho.
+                        Gerencie downloads de mídias, desempenho nativo e aparência.
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-5">
-                    {/* SECTION 1: DOWNLOAD SELETIVO DE MÍDIAS */}
-                    <div className="space-y-3">
+                <Tabs defaultValue="downloads" className="flex-1 flex flex-col min-h-0 mt-3">
+                    <TabsList className="grid grid-cols-3 w-full shrink-0 h-9 p-1 bg-muted/70 rounded-xl">
+                        <TabsTrigger
+                            value="downloads"
+                            className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+                        >
+                            <LuDownload className="h-3.5 w-3.5" />
+                            <span>Downloads</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="performance"
+                            className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+                        >
+                            <LuZap className="h-3.5 w-3.5" />
+                            <span>Desempenho</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="appearance"
+                            className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+                        >
+                            <LuPalette className="h-3.5 w-3.5" />
+                            <span>Aparência</span>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    {/* TAB 1: DOWNLOAD SELETIVO */}
+                    <TabsContent
+                        value="downloads"
+                        className="flex-1 overflow-y-auto pr-1 mt-4 space-y-4 scrollbar-discrete focus-visible:outline-none"
+                    >
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <LuDownload className="h-4 w-4 text-primary" />
+                            <div>
                                 <h4 className="text-xs font-semibold text-foreground">
                                     Download Automático de Mídias
                                 </h4>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                    Desative tipos que prefere baixar sob demanda para economizar disco e dados.
+                                </p>
                             </div>
                             <Badge
                                 variant="outline"
-                                className="text-[10px] text-primary border-primary/30 bg-primary/10"
+                                className="text-[10px] text-primary border-primary/30 bg-primary/10 shrink-0"
                             >
                                 Economia de Disco
                             </Badge>
                         </div>
-                        <p className="text-[11px] text-muted-foreground">
-                            Desative os tipos que você NÃO deseja baixar
-                            automaticamente. Quando desativado, o arquivo
-                            exibirá um botão para baixar sob demanda quando você
-                            desejar.
-                        </p>
 
                         <div className="divide-y divide-border/60 rounded-xl border border-border bg-card/60 overflow-hidden">
                             {/* Fotos */}
@@ -158,8 +189,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Documentos e Arquivos
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Baixar PDFs, planilhas e arquivos
-                                        anexados
+                                        Baixar PDFs, planilhas e arquivos anexados
                                     </p>
                                 </div>
                                 <Switch
@@ -180,7 +210,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Limite Máximo por Arquivo
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Não baixar mídias maiores que o limite
+                                        Não baixar mídias maiores que o limite especificado
                                     </p>
                                 </div>
                                 <select
@@ -195,9 +225,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                 >
                                     <option value={2}>Até 2 MB</option>
                                     <option value={5}>Até 5 MB</option>
-                                    <option value={10}>
-                                        Até 10 MB (Padrão)
-                                    </option>
+                                    <option value={10}>Até 10 MB (Padrão)</option>
                                     <option value={25}>Até 25 MB</option>
                                     <option value={50}>Até 50 MB</option>
                                     <option value={0}>Sem limite</option>
@@ -211,14 +239,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Apenas em Redes Wi-Fi
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Evita consumo de dados móveis /
-                                        roteamento
+                                        Evita consumo de planos de dados móveis / roteamento
                                     </p>
                                 </div>
                                 <Switch
-                                    checked={
-                                        settings.autoDownload.autoDownloadOnWifi
-                                    }
+                                    checked={settings.autoDownload.autoDownloadOnWifi}
                                     onCheckedChange={(checked) =>
                                         handleAutoDownloadChange(
                                             "autoDownloadOnWifi",
@@ -228,22 +253,25 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                 />
                             </div>
                         </div>
-                    </div>
+                    </TabsContent>
 
-                    <Separator />
-
-                    {/* SECTION 2: ALTO DESEMPENHO & MEMÓRIA */}
-                    <div className="space-y-3">
+                    {/* TAB 2: DESEMPENHO E LIMPEZA */}
+                    <TabsContent
+                        value="performance"
+                        className="flex-1 overflow-y-auto pr-1 mt-4 space-y-4 scrollbar-discrete focus-visible:outline-none"
+                    >
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <LuCpu className="h-4 w-4 text-emerald-500" />
+                            <div>
                                 <h4 className="text-xs font-semibold text-foreground">
                                     Desempenho Nativo (Zero Lag)
                                 </h4>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                    Otimizações de renderização, GPU e limpeza de armazenamento local.
+                                </p>
                             </div>
                             <Badge
                                 variant="outline"
-                                className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+                                className="text-[10px] text-emerald-500 border-emerald-500/30 bg-emerald-500/10 shrink-0"
                             >
                                 ~48 MB RAM
                             </Badge>
@@ -256,8 +284,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Modo Alto Desempenho
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Descarrega mídias inativas da memória
-                                        RAM e prioriza 60fps
+                                        Descarrega mídias inativas da memória RAM e prioriza 60fps constantes
                                     </p>
                                 </div>
                                 <Switch
@@ -274,38 +301,31 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Aceleração por Hardware (GPU)
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Renderização acelerada via GPU nativa do
-                                        Windows
+                                        Renderização acelerada via GPU nativa do Windows (DirectX/WebView2)
                                     </p>
                                 </div>
                                 <Switch
                                     checked={settings.hardwareAcceleration}
                                     onCheckedChange={(checked) =>
-                                        handleToggle(
-                                            "hardwareAcceleration",
-                                            checked,
-                                        )
+                                        handleToggle("hardwareAcceleration", checked)
                                     }
                                 />
                             </div>
 
                             <div className="p-3 flex items-center justify-between gap-3">
                                 <div>
-                                    <h5 className="text-xs font-medium text-foreground">
-                                        Purgar Mensagens Apagadas (SQLite e
-                                        Cache)
-                                    </h5>
-                                    <p className="text-[11px] text-muted-foreground">
-                                        Exclui permanentemente mensagens
-                                        revogadas e limpa seus arquivos de mídia
-                                        do disco local
+                                    <div className="flex items-center gap-1.5">
+                                        <LuHardDrive className="w-3.5 h-3.5 text-primary" />
+                                        <h5 className="text-xs font-medium text-foreground">
+                                            Purgar Mensagens Apagadas (SQLite e Cache)
+                                        </h5>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                        Exclui permanentemente mensagens revogadas e limpa seus arquivos de mídia do disco local
                                     </p>
                                 </div>
                                 <Switch
-                                    checked={
-                                        settings.autoPurgeRevokedMessages ??
-                                        true
-                                    }
+                                    checked={settings.autoPurgeRevokedMessages ?? true}
                                     onCheckedChange={(checked) =>
                                         handleToggle(
                                             "autoPurgeRevokedMessages",
@@ -315,57 +335,64 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                 />
                             </div>
                         </div>
-                    </div>
+                    </TabsContent>
 
-                    <Separator />
+                    {/* TAB 3: APARÊNCIA */}
+                    <TabsContent
+                        value="appearance"
+                        className="flex-1 overflow-y-auto pr-1 mt-4 space-y-4 scrollbar-discrete focus-visible:outline-none"
+                    >
+                        <div>
+                            <h4 className="text-xs font-semibold text-foreground">
+                                Tema da Interface
+                            </h4>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">
+                                Escolha o esquema visual do aplicativo para o seu ambiente de trabalho.
+                            </p>
+                        </div>
 
-                    {/* SECTION 3: APARÊNCIA & TEMA */}
-                    <div className="space-y-3">
-                        <h4 className="text-xs font-semibold text-foreground">
-                            Aparência
-                        </h4>
-                        <div className="grid grid-cols-3 gap-2">
+                        <div className="grid grid-cols-3 gap-2.5">
                             <button
                                 type="button"
                                 onClick={() => setTheme("dark")}
-                                className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                                className={`p-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
                                     theme === "dark"
-                                        ? "bg-primary/15 border-primary text-primary"
-                                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80"
+                                        ? "bg-primary/15 border-primary text-primary shadow-xs"
+                                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                                 }`}
                             >
-                                <LuMoon className="h-4 w-4" />
+                                <LuMoon className="h-5 w-5" />
                                 <span>Escuro</span>
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => setTheme("light")}
-                                className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                                className={`p-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
                                     theme === "light"
-                                        ? "bg-primary/15 border-primary text-primary"
-                                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80"
+                                        ? "bg-primary/15 border-primary text-primary shadow-xs"
+                                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                                 }`}
                             >
-                                <LuSun className="h-4 w-4" />
+                                <LuSun className="h-5 w-5" />
                                 <span>Claro</span>
                             </button>
 
                             <button
                                 type="button"
                                 onClick={() => setTheme("system")}
-                                className={`p-2.5 rounded-xl border text-xs font-medium flex items-center justify-center gap-2 transition-all ${
+                                className={`p-3 rounded-xl border text-xs font-medium flex flex-col items-center justify-center gap-2 transition-all cursor-pointer ${
                                     theme === "system"
-                                        ? "bg-primary/15 border-primary text-primary"
-                                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80"
+                                        ? "bg-primary/15 border-primary text-primary shadow-xs"
+                                        : "bg-muted/40 border-border text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                                 }`}
                             >
-                                <LuCpu className="h-4 w-4" />
+                                <LuCpu className="h-5 w-5" />
                                 <span>Sistema</span>
                             </button>
                         </div>
-                    </div>
-                </div>
+                    </TabsContent>
+                </Tabs>
             </DialogContent>
         </Dialog>
     )

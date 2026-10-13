@@ -602,7 +602,7 @@ export function ChatView() {
             </div>
 
             {/* Message Stream */}
-            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-discrete">
                 {/* Security info banner */}
                 <div className="mx-auto max-w-md p-2 mb-3 rounded-lg bg-muted/40 border border-border/60 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
                     <LuShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />

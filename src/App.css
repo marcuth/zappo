@@ -148,3 +148,41 @@
 .font-emoji {
     font-family: "Noto Color Emoji Scoped", "Noto Color Emoji", sans-serif;
 }
+
+/* Scrollbars discretas e elegantes */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: oklch(0.5 0 0 / 20%);
+    border-radius: 9999px;
+    transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: oklch(0.5 0 0 / 38%);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+    background: oklch(1 0 0 / 18%);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+    background: oklch(1 0 0 / 32%);
+}
+
+/* Utilitário para ocultar até hover ou deixar ultrafino */
+.scrollbar-discrete {
+    scrollbar-width: thin;
+    scrollbar-color: oklch(0.5 0 0 / 20%) transparent;
+}
+
+.dark .scrollbar-discrete {
+    scrollbar-color: oklch(1 0 0 / 18%) transparent;
+}
