@@ -1,14 +1,20 @@
 import {
     LuCheck,
     LuDownload,
+    LuEye,
     LuFileText,
+    LuFolderOpen,
     LuImage,
     LuMic,
     LuPlay,
+    LuZoomIn,
 } from "react-icons/lu"
+import { openPath, revealItemInDir } from "@tauri-apps/plugin-opener"
 import { convertFileSrc } from "@tauri-apps/api/core"
 import { useState } from "react"
 
+import { ImageLightboxModal } from "./image-lightbox-modal"
+import { PdfViewerModal } from "./pdf-viewer-modal"
 import { MediaAttachment } from "../../types"
 import { Spinner } from "../ui/spinner"
 import { Button } from "../ui/button"
@@ -21,6 +27,8 @@ interface MediaMessageCardProps {
 
 export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
     const [failedSrc, setFailedSrc] = useState<string | null>(null)
+    const [isLightboxOpen, setIsLightboxOpen] = useState(false)
+    const [isPdfModalOpen, setIsPdfModalOpen] = useState(false)
 
     const formatBytes = (bytes: number) => {
         if (!bytes || bytes === 0) return "0 B"
@@ -34,10 +42,31 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
     const isImage = media.mediaType === "image"
     const isVideo = media.mediaType === "video"
     const isAudio = media.mediaType === "audio" || media.mediaType === "voice"
+    const isPdf =
+        media.fileName?.toLowerCase().endsWith(".pdf") ||
+        media.mimeType.toLowerCase().includes("pdf")
 
     // Convert local file path to Tauri asset URL safely
     const mediaSrc = media.localPath ? convertFileSrc(media.localPath) : ""
     const hasImageError = Boolean(mediaSrc && failedSrc === mediaSrc)
+
+    const handleReveal = async () => {
+        if (!media.localPath) return
+        try {
+            await revealItemInDir(media.localPath)
+        } catch (e) {
+            console.error("Falha ao abrir na pasta:", e)
+        }
+    }
+
+    const handleOpenPath = async () => {
+        if (!media.localPath) return
+        try {
+            await openPath(media.localPath)
+        } catch (e) {
+            console.error("Falha ao abrir no sistema:", e)
+        }
+    }
 
     // 1. STICKERS (FIGURINHAS)
     if (isSticker) {
@@ -84,23 +113,41 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
     if (media.isDownloaded && mediaSrc) {
         if (isImage && !hasImageError) {
             return (
-                <div className="mt-1.5 rounded-2xl overflow-hidden border border-border/60 bg-black/30 shadow-md max-w-sm">
-                    <div className="relative overflow-hidden group">
-                        <img
-                            key={mediaSrc}
-                            src={mediaSrc}
-                            alt={media.fileName || "Foto"}
-                            className="max-h-80 w-auto object-cover rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]"
-                            onError={() => setFailedSrc(mediaSrc)}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2.5">
-                            <span className="text-[11px] text-white/90 truncate font-mono">
-                                {media.fileName || "Foto recebida"} •{" "}
-                                {formatBytes(media.fileSize)}
-                            </span>
+                <>
+                    <div
+                        onClick={() => setIsLightboxOpen(true)}
+                        className="mt-1.5 rounded-2xl overflow-hidden border border-border/60 bg-black/30 shadow-md max-w-sm cursor-pointer group hover:border-primary/50 transition-colors"
+                        title="Clique para expandir em tela cheia com zoom"
+                    >
+                        <div className="relative overflow-hidden">
+                            <img
+                                key={mediaSrc}
+                                src={mediaSrc}
+                                alt={media.fileName || "Foto"}
+                                className="max-h-80 w-auto object-cover rounded-2xl transition-transform duration-300 group-hover:scale-[1.02]"
+                                onError={() => setFailedSrc(mediaSrc)}
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-2.5">
+                                <span className="text-[11px] text-white/90 truncate font-mono">
+                                    {media.fileName || "Foto recebida"} •{" "}
+                                    {formatBytes(media.fileSize)}
+                                </span>
+                                <span className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded bg-black/50 text-white backdrop-blur">
+                                    <LuZoomIn className="w-3 h-3" />
+                                    Expandir
+                                </span>
+                            </div>
                         </div>
                     </div>
-                </div>
+
+                    <ImageLightboxModal
+                        isOpen={isLightboxOpen}
+                        imageUrl={mediaSrc}
+                        fileName={media.fileName}
+                        fileSize={media.fileSize}
+                        onClose={() => setIsLightboxOpen(false)}
+                    />
+                </>
             )
         }
 
@@ -113,11 +160,21 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
                         preload="metadata"
                         className="max-h-80 w-full rounded-2xl"
                     />
-                    {media.fileName && (
-                        <div className="px-3 py-1.5 bg-black/40 text-[10px] text-muted-foreground truncate font-mono">
-                            {media.fileName} • {formatBytes(media.fileSize)}
-                        </div>
-                    )}
+                    <div className="px-3 py-1.5 bg-black/40 flex items-center justify-between text-[10px] text-muted-foreground font-mono">
+                        <span className="truncate">
+                            {media.fileName || "Vídeo"} •{" "}
+                            {formatBytes(media.fileSize)}
+                        </span>
+                        {media.localPath && (
+                            <button
+                                onClick={handleReveal}
+                                className="hover:text-foreground inline-flex items-center gap-1 transition-colors ml-2"
+                                title="Mostrar na pasta"
+                            >
+                                <LuFolderOpen className="w-3 h-3" />
+                            </button>
+                        )}
+                    </div>
                 </div>
             )
         }
@@ -145,34 +202,87 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
 
         // Document or generic file downloaded
         return (
-            <div className="mt-1.5 p-3 rounded-2xl border border-border/60 bg-card/90 shadow-sm max-w-sm">
-                <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-xl bg-purple-500/15 border border-purple-500/25 flex items-center justify-center shrink-0 text-purple-400">
-                        <LuFileText className="h-5 w-5" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <h5 className="text-xs font-semibold text-foreground truncate">
-                            {media.fileName || "Documento anexado"}
-                        </h5>
-                        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
-                            <LuCheck className="w-3 h-3 text-emerald-500" />
-                            <span>Salvo no disco</span>
-                            <span>•</span>
-                            <span>{formatBytes(media.fileSize)}</span>
+            <>
+                <div className="mt-1.5 p-3 rounded-2xl border border-border/60 bg-card/90 shadow-sm max-w-sm space-y-2.5">
+                    <div className="flex items-center gap-2.5">
+                        <div
+                            className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${
+                                isPdf
+                                    ? "bg-red-500/15 border-red-500/25 text-red-500"
+                                    : "bg-purple-500/15 border-purple-500/25 text-purple-400"
+                            }`}
+                        >
+                            <LuFileText className="h-5 w-5" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <h5 className="text-xs font-semibold text-foreground truncate">
+                                {media.fileName || "Documento anexado"}
+                            </h5>
+                            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground font-mono">
+                                <LuCheck className="w-3 h-3 text-emerald-500" />
+                                <span>Salvo no disco</span>
+                                <span>•</span>
+                                <span>{formatBytes(media.fileSize)}</span>
+                            </div>
                         </div>
                     </div>
+
+                    <div className="flex items-center gap-1.5 pt-1 border-t border-border/40">
+                        {isPdf && (
+                            <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setIsPdfModalOpen(true)}
+                                className="h-7 text-[11px] gap-1 px-2.5 flex-1 rounded-lg"
+                            >
+                                <LuEye className="w-3.5 h-3.5" />
+                                <span>Visualizar PDF</span>
+                            </Button>
+                        )}
+                        {media.localPath && (
+                            <>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleOpenPath}
+                                    className="h-7 text-[11px] gap-1 px-2 rounded-lg text-muted-foreground hover:text-foreground"
+                                    title="Abrir no programa padrão"
+                                >
+                                    <span>Abrir</span>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={handleReveal}
+                                    className="h-7 text-[11px] gap-1 px-2 rounded-lg text-muted-foreground hover:text-foreground"
+                                    title="Mostrar na pasta do Windows"
+                                >
+                                    <LuFolderOpen className="w-3.5 h-3.5" />
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </div>
-            </div>
+
+                {isPdf && (
+                    <PdfViewerModal
+                        isOpen={isPdfModalOpen}
+                        pdfUrl={mediaSrc}
+                        localPath={media.localPath}
+                        fileName={media.fileName}
+                        fileSize={media.fileSize}
+                        onClose={() => setIsPdfModalOpen(false)}
+                    />
+                )}
+            </>
         )
     }
 
-    // 3. NOT DOWNLOADED YET (PREVIEW FAKE COM BLUR ESTÉTICO)
+    // 3. NOT DOWNLOADED YET (PREVIEW COM BLUR ESTÉTICO)
     if (isImage || isVideo) {
         return (
             <div className="mt-1.5 rounded-2xl overflow-hidden border border-white/10 shadow-lg max-w-sm relative group">
-                {/* Visual Fake Blur Preview */}
                 <div className="relative w-64 h-48 sm:w-72 sm:h-52 overflow-hidden bg-gradient-to-tr from-emerald-950/70 via-slate-900 to-indigo-950/70 flex flex-col items-center justify-center p-4">
-                    {/* Background real thumbnail if available, or simulated blurred photographic backdrop */}
                     {media.thumbnailDataUrl ? (
                         <img
                             src={media.thumbnailDataUrl}
@@ -180,59 +290,42 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
                             className="absolute inset-0 w-full h-full object-cover blur-md scale-110 opacity-70"
                         />
                     ) : (
-                        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-600/20 via-primary/10 to-transparent blur-xl" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-card/20 to-black/80" />
                     )}
 
-                    {/* Dark Glassmorphism Overlay */}
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-md" />
-
-                    {/* Centered Content & Download Action */}
-                    <div className="relative z-10 flex flex-col items-center text-center gap-2.5 max-w-[90%]">
-                        <div className="w-11 h-11 rounded-2xl bg-black/50 border border-white/20 backdrop-blur-md shadow-xl flex items-center justify-center text-white/90">
-                            {isVideo ? (
-                                <LuPlay className="w-5 h-5 ml-0.5 text-blue-400" />
-                            ) : (
-                                <LuImage className="w-5 h-5 text-emerald-400" />
-                            )}
-                        </div>
-
-                        <div className="space-y-0.5">
-                            <span className="text-xs font-semibold text-white/95 line-clamp-1 break-all">
-                                {media.fileName ||
-                                    (isVideo
-                                        ? "Vídeo não baixado"
-                                        : "Foto não baixada")}
-                            </span>
-                            <div className="flex items-center justify-center gap-1.5 text-[10px] text-white/70 font-mono">
-                                <span>{isVideo ? "Vídeo" : "Foto"}</span>
-                                <span>•</span>
-                                <span>{formatBytes(media.fileSize)}</span>
-                            </div>
-                        </div>
-
+                    <div className="relative z-10 flex flex-col items-center text-center space-y-3">
                         <Button
-                            size="sm"
+                            size="icon"
                             onClick={onDownload}
                             disabled={media.isDownloading}
-                            className="h-8 px-4 text-xs font-medium gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/30 shadow-lg shadow-emerald-950/50 rounded-xl"
+                            className="w-13 h-13 rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white backdrop-blur-md shadow-xl transition-transform hover:scale-110 active:scale-95"
+                            title={
+                                media.isDownloading
+                                    ? "Baixando mídia..."
+                                    : "Baixar mídia completa"
+                            }
                         >
                             {media.isDownloading ? (
-                                <>
-                                    <Spinner className="size-3.5 text-white" />
-                                    <span>
-                                        Baixando ({media.downloadProgress || 20}
-                                        %)...
-                                    </span>
-                                </>
+                                <Spinner className="size-6 text-white" />
+                            ) : isVideo ? (
+                                <LuPlay className="w-6 h-6 ml-0.5 text-white fill-white/80" />
                             ) : (
-                                <>
-                                    <LuDownload className="h-3.5 w-3.5" />
-                                    <span>
-                                        Baixar ({formatBytes(media.fileSize)})
-                                    </span>
-                                </>
+                                <LuDownload className="w-6 h-6 text-white" />
                             )}
                         </Button>
+
+                        <div className="space-y-0.5">
+                            <span className="text-xs font-semibold text-white drop-shadow">
+                                {media.isDownloading
+                                    ? `Baixando (${media.downloadProgress || 20}%)...`
+                                    : isVideo
+                                      ? "Vídeo não baixado"
+                                      : "Foto não baixada"}
+                            </span>
+                            <p className="text-[10px] text-white/80 font-mono drop-shadow">
+                                {formatBytes(media.fileSize)}
+                            </p>
+                        </div>
                     </div>
 
                     <Badge

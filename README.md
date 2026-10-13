@@ -102,12 +102,12 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 ### 🖼️ Mídias, Figurinhas e Documentos
 
 - [x] **Legendas em Anexos:** Adicionar suporte à inclusão de legendas personalizadas em fotos, vídeos e documentos.
-- [ ] **Visualizador de Imagens (Lightbox):** Permitir clicar na imagem para expandi-la em tela cheia com zoom e navegação.
+- [x] **Visualizador de Imagens (Lightbox):** Permitir clicar na imagem para expandi-la em tela cheia com zoom e navegação.
 - [ ] **Editor de Imagens:** Ferramentas básicas de edição antes do envio (recorte, rabisco/desenho livre e inserção de textos).
-- [ ] **Visualizador de PDF:** Prévia e leitura integrada de documentos PDF diretamente no aplicativo.
+- [x] **Visualizador de PDF:** Prévia e leitura integrada de documentos PDF diretamente no aplicativo.
 - [ ] **Figurinhas Favoritas:** Sincronizar figurinhas favoritas da conta e permitir favoritar novas figurinhas recebidas.
 - [ ] **Criação de Figurinhas por Vídeo:** Criar figurinhas animadas a partir de trechos de vídeo ou GIFs.
-- [ ] **Download Automático:** Corrigir e refinar a desativação do download automático de mídias de acordo com as preferências do usuário.
+- [x] **Download Automático:** Corrigir e refinar a desativação do download automático de mídias de acordo com as preferências do usuário.
 
 ### 📢 Status e Atualizações
 

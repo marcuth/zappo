@@ -422,7 +422,7 @@ export function ChatView() {
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            placeholder="Digite uma mensagem... (Markdown: *negrito*, _itálico_, ~tachado~)"
+                            placeholder="Digite uma mensagem..."
                             rows={1}
                             className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none resize-none max-h-32 font-sans font-emoji"
                         />

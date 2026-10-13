@@ -508,6 +508,13 @@ impl SessionManager {
                     // Verifica se há mídia anexada (Fotos, Figurinhas/Stickers, Vídeos, Áudio, Documentos)
                     let mut media_att = None;
                     let settings = storage.load_settings();
+                    let is_within_max_size = |size: u64| {
+                        if settings.auto_download.max_file_size_mb == 0 {
+                            true
+                        } else {
+                            size <= (settings.auto_download.max_file_size_mb as u64) * 1024 * 1024
+                        }
+                    };
                     use base64::Engine;
                     let to_b64 = |opt: &Option<Vec<u8>>| {
                         opt.as_ref()
@@ -518,7 +525,7 @@ impl SessionManager {
                     if let Some(img) = ctx.message.image_message.as_option() {
                         let file_size = img.file_length.unwrap_or(0);
                         let should_download =
-                            settings.auto_download.images || file_size <= 15 * 1024 * 1024;
+                            settings.auto_download.images && is_within_max_size(file_size);
                         let mut is_downloaded = false;
                         let mut local_path = None;
 
@@ -599,7 +606,8 @@ impl SessionManager {
                     // 3. Vídeos
                     else if let Some(vid) = ctx.message.video_message.as_option() {
                         let file_size = vid.file_length.unwrap_or(0);
-                        let should_download = settings.auto_download.videos;
+                        let should_download =
+                            settings.auto_download.videos && is_within_max_size(file_size);
                         let mut is_downloaded = false;
                         let mut local_path = None;
 
@@ -646,7 +654,8 @@ impl SessionManager {
                     // 4. Áudio / Mensagem de Voz
                     else if let Some(aud) = ctx.message.audio_message.as_option() {
                         let file_size = aud.file_length.unwrap_or(0);
-                        let should_download = settings.auto_download.audio;
+                        let should_download =
+                            settings.auto_download.audio && is_within_max_size(file_size);
                         let mut is_downloaded = false;
                         let mut local_path = None;
 
@@ -699,7 +708,8 @@ impl SessionManager {
                             .file_name
                             .clone()
                             .unwrap_or_else(|| "documento.pdf".to_string());
-                        let should_download = settings.auto_download.documents;
+                        let should_download =
+                            settings.auto_download.documents && is_within_max_size(file_size);
                         let mut is_downloaded = false;
                         let mut local_path = None;
 
