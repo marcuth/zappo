@@ -397,6 +397,10 @@ impl SessionManager {
                                                 continue;
                                             }
                                             let sender_name = wmi.push_name.clone();
+                                            let reply_to = wmi
+                                                .message
+                                                .as_option()
+                                                .and_then(extract_quoted_from_proto);
 
                                             let msg = Message {
                                                 id: msg_id.clone(),
@@ -412,7 +416,7 @@ impl SessionManager {
                                                 },
                                                 status: "read".to_string(),
                                                 media: None,
-                                                reply_to: None,
+                                                reply_to,
                                             };
 
                                             if !chat_messages.iter().any(|m| m.id == msg.id) {
@@ -789,6 +793,7 @@ impl SessionManager {
                     }
 
                     let now = chrono::Utc::now().timestamp_millis();
+                    let reply_to = extract_quoted_from_proto(&ctx.message);
                     let message = Message {
                         id: msg_id.clone(),
                         chat_jid: chat_jid.clone(),
@@ -799,7 +804,7 @@ impl SessionManager {
                         timestamp: now,
                         status: "read".to_string(),
                         media: media_att.clone(),
-                        reply_to: None,
+                        reply_to,
                     };
 
                     // 1. Salva a mensagem localmente com deduplicação
@@ -982,28 +987,12 @@ impl SessionManager {
         text: &str,
         reply_to_id: Option<String>,
     ) -> Result<Message, String> {
-        let mut real_msg_id = None;
-        let client_opt = self.active_client.lock().await.clone();
-        if let Some(client) = client_opt {
-            if client.is_connected() {
-                if let Ok(jid) = chat_jid.parse::<Jid>() {
-                    if let Ok(res) = client.send_text(&jid, text).await {
-                        real_msg_id = Some(res.message_id);
-                    }
-                }
-            }
-        }
-
-        let now = chrono::Utc::now().timestamp_millis();
-        let msg_id =
-            real_msg_id.unwrap_or_else(|| format!("msg_{}_{}", now, uuid::Uuid::new_v4().simple()));
-
         // Resolve mensagem respondida se informada
-        let reply_to = if let Some(ref r_id) = reply_to_id {
+        let (reply_to, wire_quote_context) = if let Some(ref r_id) = reply_to_id {
             let existing_msgs = self.storage.load_messages(account_id, chat_jid);
-            existing_msgs.into_iter().find(|m| &m.id == r_id).map(|m| {
-                let r_text = m.text.unwrap_or_else(|| {
-                    if let Some(med) = m.media {
+            if let Some(m) = existing_msgs.into_iter().find(|m| &m.id == r_id) {
+                let r_text = m.text.clone().unwrap_or_else(|| {
+                    if let Some(ref med) = m.media {
                         match med.media_type.as_str() {
                             "image" => "📷 Foto".to_string(),
                             "video" => "📹 Vídeo".to_string(),
@@ -1015,15 +1004,79 @@ impl SessionManager {
                         "Mensagem".to_string()
                     }
                 });
-                crate::models::QuotedMessage {
-                    id: m.id,
+
+                let quoted_model = crate::models::QuotedMessage {
+                    id: m.id.clone(),
                     sender_name: m.sender_name.unwrap_or_else(|| "Participante".to_string()),
-                    text: r_text,
-                }
-            })
+                    text: r_text.clone(),
+                };
+
+                // Constrói o contexto da citação no protocolo do WhatsApp
+                let target_participant = m.sender_jid.clone().unwrap_or_else(|| {
+                    if m.from_me {
+                        account_id.to_string()
+                    } else {
+                        chat_jid.to_string()
+                    }
+                });
+
+                let dummy_quoted_proto = wa::Message {
+                    conversation: Some(r_text),
+                    ..Default::default()
+                };
+
+                let context_info = wacore::proto_helpers::build_quote_context(
+                    &m.id,
+                    target_participant,
+                    &dummy_quoted_proto,
+                );
+
+                (Some(quoted_model), Some(context_info))
+            } else {
+                (None, None)
+            }
         } else {
-            None
+            (None, None)
         };
+
+        let mut real_msg_id = None;
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid.parse::<Jid>() {
+                    let wa_msg = if let Some(ctx) = wire_quote_context {
+                        wa::Message {
+                            extended_text_message: buffa::MessageField::some(
+                                wa::message::ExtendedTextMessage {
+                                    text: Some(text.to_string()),
+                                    context_info: buffa::MessageField::some(ctx),
+                                    ..Default::default()
+                                },
+                            ),
+                            ..Default::default()
+                        }
+                    } else {
+                        wa::Message {
+                            conversation: Some(text.to_string()),
+                            ..Default::default()
+                        }
+                    };
+
+                    match client.send_message(&jid, wa_msg).await {
+                        Ok(res) => {
+                            real_msg_id = Some(res.message_id);
+                        }
+                        Err(e) => {
+                            eprintln!("[send_message] Falha ao enviar mensagem: {:?}", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        let now = chrono::Utc::now().timestamp_millis();
+        let msg_id =
+            real_msg_id.unwrap_or_else(|| format!("msg_{}_{}", now, uuid::Uuid::new_v4().simple()));
 
         let message = Message {
             id: msg_id.clone(),
@@ -1106,6 +1159,13 @@ impl SessionManager {
             );
         }
 
+        let mut audio_duration_sec: Option<u32> = None;
+        if media_type == "voice" {
+            let (converted, dur) = convert_to_ogg_opus(&bytes);
+            bytes = converted;
+            audio_duration_sec = dur;
+        }
+
         let now = chrono::Utc::now().timestamp_millis();
         let uuid_str = uuid::Uuid::new_v4().simple().to_string();
         let msg_id = format!("media_{}_{}", now, &uuid_str[..8]);
@@ -1118,10 +1178,14 @@ impl SessionManager {
             _ => "documents",
         };
 
-        let ext = file_name
-            .split('.')
-            .last()
-            .unwrap_or(if media_type == "image" { "jpg" } else { "bin" });
+        let ext = if media_type == "voice" {
+            "ogg"
+        } else {
+            file_name
+                .split('.')
+                .last()
+                .unwrap_or(if media_type == "image" { "jpg" } else { "bin" })
+        };
         let dest = self
             .storage
             .media_dir(account_id, sub_folder)
@@ -1190,14 +1254,31 @@ impl SessionManager {
                                     }
                                     msg
                                 }
-                                "audio" | "voice" => whatsapp_rust::media::audio_message(
-                                    upload,
-                                    whatsapp_rust::media::AudioOptions {
-                                        mimetype: Some(mime_type_str.to_string()),
-                                        ptt: Some(media_type == "voice"),
-                                        ..Default::default()
-                                    },
-                                ),
+                                "audio" | "voice" => {
+                                    let is_ptt = media_type == "voice";
+                                    // Para notas de voz PTT, o WhatsApp requer um array de waveform de 64 bytes
+                                    let waveform = if is_ptt {
+                                        Some(vec![
+                                            15, 30, 50, 75, 40, 20, 60, 90, 70, 45, 30, 80, 55, 35, 20, 40,
+                                            60, 85, 50, 25, 65, 95, 75, 50, 35, 80, 60, 40, 20, 35, 55, 75,
+                                            45, 25, 65, 85, 65, 40, 30, 75, 50, 35, 20, 40, 60, 80, 50, 30,
+                                            70, 90, 70, 45, 35, 75, 55, 35, 20, 30, 50, 70, 40, 20, 15, 10
+                                        ])
+                                    } else {
+                                        None
+                                    };
+
+                                    whatsapp_rust::media::audio_message(
+                                        upload,
+                                        whatsapp_rust::media::AudioOptions {
+                                            mimetype: Some(mime_type_str.to_string()),
+                                            ptt: Some(is_ptt),
+                                            duration_seconds: audio_duration_sec,
+                                            waveform,
+                                            ..Default::default()
+                                        },
+                                    )
+                                }
                                 "sticker" => wa::Message {
                                     sticker_message: MessageField::some(
                                         wa::message::StickerMessage {
@@ -1256,7 +1337,7 @@ impl SessionManager {
         let media_att = crate::models::MediaAttachment {
             id: format!("att_{}", final_id),
             media_type: media_type.to_string(),
-            file_name: Some(file_name.to_string()),
+            file_name: Some(if media_type == "voice" { format!("voice_note_{}.ogg", final_id) } else { file_name.to_string() }),
             file_size: bytes.len() as u64,
             mime_type: mime_type_str.to_string(),
             thumbnail_data_url: None,
@@ -1264,7 +1345,7 @@ impl SessionManager {
             is_downloaded: true,
             is_downloading: Some(false),
             download_progress: Some(100),
-            duration_seconds: None,
+            duration_seconds: audio_duration_sec,
             direct_path,
             media_key,
             file_sha256,
@@ -2074,4 +2155,132 @@ pub fn inject_whatsapp_sticker_metadata(
     new_webp[4..8].copy_from_slice(&total_riff_size.to_le_bytes());
 
     new_webp
+}
+
+/// Helper para converter áudio gravado (WebM ou outro formato) em Ogg/Opus
+/// compatível com notas de voz do WhatsApp e extrair a duração real em segundos.
+fn convert_to_ogg_opus(input_bytes: &[u8]) -> (Vec<u8>, Option<u32>) {
+    let temp_dir = std::env::temp_dir();
+    let nonce = uuid::Uuid::new_v4().simple().to_string();
+    let in_file = temp_dir.join(format!("zappo_in_{}.bin", nonce));
+    let out_file = temp_dir.join(format!("zappo_out_{}.ogg", nonce));
+
+    if let Err(e) = std::fs::write(&in_file, input_bytes) {
+        eprintln!("[audio_convert] Falha ao escrever arquivo temporário: {:?}", e);
+        return (input_bytes.to_vec(), None);
+    }
+
+    use std::process::Command;
+    #[cfg(target_os = "windows")]
+    use std::os::windows::process::CommandExt;
+
+    let mut cmd = Command::new("ffmpeg");
+    #[cfg(target_os = "windows")]
+    cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+    let res = cmd
+        .arg("-y")
+        .arg("-i")
+        .arg(&in_file)
+        .arg("-c:a")
+        .arg("libopus")
+        .arg("-b:a")
+        .arg("32k")
+        .arg("-vbr")
+        .arg("on")
+        .arg("-application")
+        .arg("voip")
+        .arg("-f")
+        .arg("ogg")
+        .arg(&out_file)
+        .output();
+
+    let converted_bytes = match res {
+        Ok(out) if out.status.success() && out_file.exists() => {
+            std::fs::read(&out_file).unwrap_or_else(|_| input_bytes.to_vec())
+        }
+        err => {
+            eprintln!("[audio_convert] ffmpeg falhou ou não está instalado: {:?}", err);
+            input_bytes.to_vec()
+        }
+    };
+
+    // Extrai duração usando ffprobe
+    let mut probe_cmd = Command::new("ffprobe");
+    #[cfg(target_os = "windows")]
+    probe_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+
+    let probe_target = if out_file.exists() { &out_file } else { &in_file };
+    let duration = probe_cmd
+        .arg("-v")
+        .arg("error")
+        .arg("-show_entries")
+        .arg("format=duration")
+        .arg("-of")
+        .arg("default=noprint_wrappers=1:nokey=1")
+        .arg(probe_target)
+        .output()
+        .ok()
+        .and_then(|out| {
+            let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            s.parse::<f64>().ok().map(|secs| secs.round() as u32)
+        });
+
+    let _ = std::fs::remove_file(in_file);
+    let _ = std::fs::remove_file(out_file);
+
+    (converted_bytes, duration)
+}
+
+/// Extrai a mensagem citada (reply_to) de um wa::Message recebido
+fn extract_quoted_from_proto(msg: &wa::Message) -> Option<crate::models::QuotedMessage> {
+    let base = msg.get_base_message();
+    let ctx = base.extended_text_message.as_option().and_then(|m| m.context_info.as_option())
+        .or_else(|| base.image_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.video_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.audio_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.document_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.sticker_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.location_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.contact_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.buttons_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.template_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.list_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.poll_creation_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.poll_creation_message_v2.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.poll_creation_message_v3.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.group_invite_message.as_option().and_then(|m| m.context_info.as_option()))
+        .or_else(|| base.order_message.as_option().and_then(|m| m.context_info.as_option()));
+
+    let ctx = ctx?;
+    let stanza_id = ctx.stanza_id.clone()?;
+    let participant = ctx.participant.clone().unwrap_or_else(|| "Participante".to_string());
+
+    let text = if let Some(q_msg) = ctx.quoted_message.as_option() {
+        if let Some(t) = q_msg.text_content() {
+            t.to_string()
+        } else if let Some(cap) = q_msg.get_caption() {
+            cap.to_string()
+        } else if q_msg.image_message.is_set() {
+            "📷 Foto".to_string()
+        } else if q_msg.video_message.is_set() {
+            "📹 Vídeo".to_string()
+        } else if q_msg.audio_message.is_set() {
+            "🎤 Áudio".to_string()
+        } else if q_msg.sticker_message.is_set() {
+            "✨ Figurinha".to_string()
+        } else if q_msg.document_message.is_set() {
+            "📄 Documento".to_string()
+        } else {
+            "Mensagem".to_string()
+        }
+    } else {
+        "Mensagem".to_string()
+    };
+
+    Some(crate::models::QuotedMessage {
+        id: stanza_id,
+        sender_name: participant,
+        text,
+    })
 }

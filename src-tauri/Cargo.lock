@@ -4597,6 +4597,7 @@ name = "tauri-simple-app-template"
 version = "0.1.0"
 dependencies = [
  "base64 0.22.1",
+ "buffa",
  "chrono",
  "dirs",
  "rusqlite",
@@ -4608,6 +4609,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tokio",
  "uuid",
+ "wacore",
  "whatsapp-rust",
 ]
 
