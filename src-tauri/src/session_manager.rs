@@ -1259,10 +1259,11 @@ impl SessionManager {
                                     // Para notas de voz PTT, o WhatsApp requer um array de waveform de 64 bytes
                                     let waveform = if is_ptt {
                                         Some(vec![
-                                            15, 30, 50, 75, 40, 20, 60, 90, 70, 45, 30, 80, 55, 35, 20, 40,
-                                            60, 85, 50, 25, 65, 95, 75, 50, 35, 80, 60, 40, 20, 35, 55, 75,
-                                            45, 25, 65, 85, 65, 40, 30, 75, 50, 35, 20, 40, 60, 80, 50, 30,
-                                            70, 90, 70, 45, 35, 75, 55, 35, 20, 30, 50, 70, 40, 20, 15, 10
+                                            15, 30, 50, 75, 40, 20, 60, 90, 70, 45, 30, 80, 55, 35,
+                                            20, 40, 60, 85, 50, 25, 65, 95, 75, 50, 35, 80, 60, 40,
+                                            20, 35, 55, 75, 45, 25, 65, 85, 65, 40, 30, 75, 50, 35,
+                                            20, 40, 60, 80, 50, 30, 70, 90, 70, 45, 35, 75, 55, 35,
+                                            20, 30, 50, 70, 40, 20, 15, 10,
                                         ])
                                     } else {
                                         None
@@ -1337,7 +1338,11 @@ impl SessionManager {
         let media_att = crate::models::MediaAttachment {
             id: format!("att_{}", final_id),
             media_type: media_type.to_string(),
-            file_name: Some(if media_type == "voice" { format!("voice_note_{}.ogg", final_id) } else { file_name.to_string() }),
+            file_name: Some(if media_type == "voice" {
+                format!("voice_note_{}.ogg", final_id)
+            } else {
+                file_name.to_string()
+            }),
             file_size: bytes.len() as u64,
             mime_type: mime_type_str.to_string(),
             thumbnail_data_url: None,
@@ -2166,13 +2171,16 @@ fn convert_to_ogg_opus(input_bytes: &[u8]) -> (Vec<u8>, Option<u32>) {
     let out_file = temp_dir.join(format!("zappo_out_{}.ogg", nonce));
 
     if let Err(e) = std::fs::write(&in_file, input_bytes) {
-        eprintln!("[audio_convert] Falha ao escrever arquivo temporário: {:?}", e);
+        eprintln!(
+            "[audio_convert] Falha ao escrever arquivo temporário: {:?}",
+            e
+        );
         return (input_bytes.to_vec(), None);
     }
 
-    use std::process::Command;
     #[cfg(target_os = "windows")]
     use std::os::windows::process::CommandExt;
+    use std::process::Command;
 
     let mut cmd = Command::new("ffmpeg");
     #[cfg(target_os = "windows")]
@@ -2200,7 +2208,10 @@ fn convert_to_ogg_opus(input_bytes: &[u8]) -> (Vec<u8>, Option<u32>) {
             std::fs::read(&out_file).unwrap_or_else(|_| input_bytes.to_vec())
         }
         err => {
-            eprintln!("[audio_convert] ffmpeg falhou ou não está instalado: {:?}", err);
+            eprintln!(
+                "[audio_convert] ffmpeg falhou ou não está instalado: {:?}",
+                err
+            );
             input_bytes.to_vec()
         }
     };
@@ -2210,7 +2221,11 @@ fn convert_to_ogg_opus(input_bytes: &[u8]) -> (Vec<u8>, Option<u32>) {
     #[cfg(target_os = "windows")]
     probe_cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
 
-    let probe_target = if out_file.exists() { &out_file } else { &in_file };
+    let probe_target = if out_file.exists() {
+        &out_file
+    } else {
+        &in_file
+    };
     let duration = probe_cmd
         .arg("-v")
         .arg("error")
@@ -2235,26 +2250,92 @@ fn convert_to_ogg_opus(input_bytes: &[u8]) -> (Vec<u8>, Option<u32>) {
 /// Extrai a mensagem citada (reply_to) de um wa::Message recebido
 fn extract_quoted_from_proto(msg: &wa::Message) -> Option<crate::models::QuotedMessage> {
     let base = msg.get_base_message();
-    let ctx = base.extended_text_message.as_option().and_then(|m| m.context_info.as_option())
-        .or_else(|| base.image_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.video_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.audio_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.document_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.sticker_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.location_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.contact_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.buttons_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.template_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.list_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.poll_creation_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.poll_creation_message_v2.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.poll_creation_message_v3.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.group_invite_message.as_option().and_then(|m| m.context_info.as_option()))
-        .or_else(|| base.order_message.as_option().and_then(|m| m.context_info.as_option()));
+    let ctx = base
+        .extended_text_message
+        .as_option()
+        .and_then(|m| m.context_info.as_option())
+        .or_else(|| {
+            base.image_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.video_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.audio_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.document_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.sticker_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.location_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.contact_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.buttons_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.template_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.list_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.poll_creation_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.poll_creation_message_v2
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.poll_creation_message_v3
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.group_invite_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        })
+        .or_else(|| {
+            base.order_message
+                .as_option()
+                .and_then(|m| m.context_info.as_option())
+        });
 
     let ctx = ctx?;
     let stanza_id = ctx.stanza_id.clone()?;
-    let participant = ctx.participant.clone().unwrap_or_else(|| "Participante".to_string());
+    let participant = ctx
+        .participant
+        .clone()
+        .unwrap_or_else(|| "Participante".to_string());
 
     let text = if let Some(q_msg) = ctx.quoted_message.as_option() {
         if let Some(t) = q_msg.text_content() {
