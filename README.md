@@ -135,7 +135,7 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [x] **Pesquisa de Emojis:** Corrigir busca e filtragem no seletor de emojis.
 - [ ] **Consertar Envio de Mensagens de Voz:** Diagnosticar e corrigir o envio de notas de voz gravadas pelo microfone, garantindo correta conversão de formato/codec de áudio (Opus/OGG) e compatibilidade com os servidores do WhatsApp.
 - [ ] **Balão de Áudio Personalizado:** Substituir o player de áudio nativo padrão por um componente de reprodução estilizado e integrado ao design do aplicativo, contendo barra de progresso em formato de onda/waveform, controle de velocidade (1x, 1.5x, 2x), botão play/pause e duração decorrida/total.
-- [ ] **Correção da Abertura do Modal de Emojis ao Reagir:** Corrigir a abertura do seletor/modal completo de emojis acionado pelo botão `+` na barra de reações rápidas sobre as mensagens.
+- [x] **Correção da Abertura do Modal de Emojis ao Reagir:** Corrigir a abertura do seletor/modal completo de emojis acionado pelo botão `+` na barra de reações rápidas sobre as mensagens.
 - [x] **Identificação em Envio de Figurinhas:** Exibir o cabeçalho/nome do autor ao enviar figurinhas isoladas em grupos (quando não houver mensagem anterior dele).
 - [ ] **Figurinhas Favoritas:** Sincronizar figurinhas favoritas da conta e permitir favoritar novas figurinhas recebidas.
 - [ ] **Criação de Figurinhas por Vídeo:** Criar figurinhas animadas a partir de trechos de vídeo ou GIFs.

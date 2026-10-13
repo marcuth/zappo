@@ -97,6 +97,9 @@ export function ChatView() {
 
     const [inputText, setInputText] = useState("")
     const [isPickerOpen, setIsPickerOpen] = useState(false)
+    const [reactingMessageId, setReactingMessageId] = useState<string | null>(
+        null,
+    )
     const [pendingFile, setPendingFile] = useState<File | null>(null)
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
     const [isSyncingGroups, setIsSyncingGroups] = useState(false)
@@ -891,6 +894,12 @@ export function ChatView() {
                         setReplyingMessage(contextMenu.message)
                     }
                 }}
+                onOpenEmojiPicker={() => {
+                    if (contextMenu.message) {
+                        setReactingMessageId(contextMenu.message.id)
+                        setIsPickerOpen(true)
+                    }
+                }}
                 onReact={(emoji) => {
                     if (contextMenu.message) {
                         handleReact(contextMenu.message.id, emoji)
@@ -935,9 +944,18 @@ export function ChatView() {
                 {/* Emoji & Sticker Picker Popover */}
                 <EmojiStickerPicker
                     open={isPickerOpen}
-                    onClose={() => setIsPickerOpen(false)}
+                    onClose={() => {
+                        setIsPickerOpen(false)
+                        setReactingMessageId(null)
+                    }}
                     onSelectEmoji={(emoji) => {
-                        setInputText((prev) => prev + emoji)
+                        if (reactingMessageId) {
+                            handleReact(reactingMessageId, emoji)
+                            setReactingMessageId(null)
+                            setIsPickerOpen(false)
+                        } else {
+                            setInputText((prev) => prev + emoji)
+                        }
                     }}
                     onSendStickerFile={async (file) => {
                         await sendMedia(file, undefined, "sticker")

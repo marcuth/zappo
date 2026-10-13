@@ -18,6 +18,7 @@ interface MessageContextMenuProps {
     onCopyText: () => void
     onViewInfo: () => void
     onReact: (emoji: string) => void
+    onOpenEmojiPicker?: () => void
     onConvertToSticker?: () => void
     onReply?: () => void
 }
@@ -35,6 +36,7 @@ export function MessageContextMenu({
     onCopyText,
     onViewInfo,
     onReact,
+    onOpenEmojiPicker,
     onConvertToSticker,
     onReply,
 }: MessageContextMenuProps) {
@@ -105,7 +107,9 @@ export function MessageContextMenu({
                     <button
                         title="Mais reações"
                         onClick={() => {
-                            /* future: open reaction picker */
+                            if (onOpenEmojiPicker) {
+                                onOpenEmojiPicker()
+                            }
                             onClose()
                         }}
                         className="w-8 h-8 flex items-center justify-center rounded-xl hover:bg-muted/80 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
