@@ -1,10 +1,5 @@
 export type MediaType =
-    | "image"
-    | "video"
-    | "audio"
-    | "document"
-    | "sticker"
-    | "voice"
+    "image" | "video" | "audio" | "document" | "sticker" | "voice"
 
 export type MessageStatus = "pending" | "sent" | "delivered" | "read" | "failed"
 

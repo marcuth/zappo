@@ -1,9 +1,5 @@
 export type AccountStatus =
-    | "connected"
-    | "connecting"
-    | "disconnected"
-    | "pairing"
-    | "standby"
+    "connected" | "connecting" | "disconnected" | "pairing" | "standby"
 
 export interface Account {
     id: string
