@@ -804,7 +804,7 @@ export function ChatView() {
                                 onContextMenu={(e) =>
                                     openContextMenu(e, message)
                                 }
-                                className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed space-y-1.5 cursor-context-menu ${
+                                className={`min-w-[310px] max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed space-y-1.5 cursor-context-menu ${
                                     isFromMe
                                         ? "bg-primary text-primary-foreground rounded-br-xs"
                                         : "bg-card border border-border/80 text-foreground rounded-bl-xs"
