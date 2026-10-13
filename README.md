@@ -100,10 +100,10 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 
 ### 👥 Gestão de Grupos e Contatos
 
-- [ ] **Fotos de Perfil dos Autores e Contatos:** Buscar, exibir e armazenar em cache as fotos de perfil de contatos, grupos e autores das mensagens nas conversas.
-- [ ] **Membros do Grupo:** Visualizar a lista detalhada de participantes e administradores do grupo.
-- [ ] **Adicionar Participantes:** Adicionar membros ao grupo, inclusive pessoas que não estejam salvas na agenda (diretamente pelo número).
-- [ ] **Sair de Grupos:** Adicionar opções para sair de grupos e silenciar notificações.
+- [x] **Fotos de Perfil dos Autores e Contatos:** Buscar, exibir e armazenar em cache as fotos de perfil de contatos, grupos e autores das mensagens nas conversas.
+- [x] **Membros do Grupo:** Visualizar a lista detalhada de participantes e administradores do grupo.
+- [x] **Adicionar Participantes:** Adicionar membros ao grupo, inclusive pessoas que não estejam salvas na agenda (diretamente pelo número).
+- [x] **Sair de Grupos:** Adicionar opções para sair de grupos e silenciar notificações.
 
 ### 🖼️ Mídias, Figurinhas e Documentos
 
