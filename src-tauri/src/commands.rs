@@ -1,10 +1,10 @@
-use std::sync::Arc;
-use tauri::State;
 use crate::models::{
     Account, AppSettings, Chat, Message, PairingCodeResponse, QrCodeResponse, StorageStats,
 };
 use crate::session_manager::SessionManager;
 use crate::storage::StorageManager;
+use std::sync::Arc;
+use tauri::State;
 
 pub struct AppState {
     pub storage: Arc<StorageManager>,
@@ -18,7 +18,11 @@ pub fn get_accounts(state: State<AppState>) -> Vec<Account> {
 
 #[tauri::command]
 pub fn get_active_account(state: State<AppState>) -> Option<Account> {
-    state.storage.load_accounts().into_iter().find(|a| a.is_active)
+    state
+        .storage
+        .load_accounts()
+        .into_iter()
+        .find(|a| a.is_active)
 }
 
 #[tauri::command]
@@ -61,10 +65,7 @@ pub async fn switch_account(
 }
 
 #[tauri::command]
-pub async fn delete_account(
-    state: State<'_, AppState>,
-    account_id: String,
-) -> Result<(), String> {
+pub async fn delete_account(state: State<'_, AppState>, account_id: String) -> Result<(), String> {
     let mut accounts = state.storage.load_accounts();
     accounts.retain(|a| a.id != account_id);
     state.storage.save_accounts(&accounts);
@@ -134,7 +135,10 @@ pub async fn send_message(
     text: String,
     reply_to_id: Option<String>,
 ) -> Result<Message, String> {
-    state.session_mgr.send_message(&account_id, &chat_jid, &text, reply_to_id).await
+    state
+        .session_mgr
+        .send_message(&account_id, &chat_jid, &text, reply_to_id)
+        .await
 }
 
 #[tauri::command]
@@ -143,7 +147,10 @@ pub async fn download_media(
     account_id: String,
     message_id: String,
 ) -> Result<String, String> {
-    state.session_mgr.download_media(&account_id, &message_id).await
+    state
+        .session_mgr
+        .download_media(&account_id, &message_id)
+        .await
 }
 
 #[tauri::command]
@@ -156,14 +163,17 @@ pub async fn send_media(
     file_data_base64: String,
     caption: Option<String>,
 ) -> Result<Message, String> {
-    state.session_mgr.send_media(
-        &account_id,
-        &chat_jid,
-        &media_type,
-        &file_name,
-        &file_data_base64,
-        caption,
-    ).await
+    state
+        .session_mgr
+        .send_media(
+            &account_id,
+            &chat_jid,
+            &media_type,
+            &file_name,
+            &file_data_base64,
+            caption,
+        )
+        .await
 }
 
 #[tauri::command]
@@ -173,14 +183,14 @@ pub async fn start_chat(
     phone_number: String,
     name: Option<String>,
 ) -> Result<Chat, String> {
-    state.session_mgr.start_chat(&account_id, &phone_number, name.as_deref()).await
+    state
+        .session_mgr
+        .start_chat(&account_id, &phone_number, name.as_deref())
+        .await
 }
 
 #[tauri::command]
-pub fn get_storage_stats(
-    state: State<AppState>,
-    account_id: Option<String>,
-) -> StorageStats {
+pub fn get_storage_stats(state: State<AppState>, account_id: Option<String>) -> StorageStats {
     state.storage.get_storage_stats(account_id.as_deref())
 }
 
@@ -190,15 +200,14 @@ pub fn clear_media_cache(
     category: Option<String>,
     older_than_days: Option<u32>,
 ) -> serde_json::Value {
-    let freed = state.storage.clear_media_cache(category.as_deref(), older_than_days);
+    let freed = state
+        .storage
+        .clear_media_cache(category.as_deref(), older_than_days);
     serde_json::json!({ "freedBytes": freed })
 }
 
 #[tauri::command]
-pub fn clear_chat_cache(
-    state: State<AppState>,
-    chat_jid: String,
-) -> serde_json::Value {
+pub fn clear_chat_cache(state: State<AppState>, chat_jid: String) -> serde_json::Value {
     let freed = state.storage.clear_chat_cache(&chat_jid);
     serde_json::json!({ "freedBytes": freed })
 }
@@ -218,7 +227,10 @@ pub async fn clear_chat_messages(
     account_id: String,
     chat_jid: String,
 ) -> Result<(), String> {
-    state.session_mgr.clear_chat_messages(&account_id, &chat_jid).await
+    state
+        .session_mgr
+        .clear_chat_messages(&account_id, &chat_jid)
+        .await
 }
 
 #[tauri::command]

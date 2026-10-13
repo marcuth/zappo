@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use tauri::{AppHandle, Emitter};
-use whatsapp_rust::prelude::*;
-use whatsapp_rust::download::MediaType;
-use whatsapp_rust::types::events::{Event, EventKind};
 use crate::models::{Account, Message, QrCodeResponse};
 use crate::storage::StorageManager;
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
+use tokio::sync::Mutex;
+use whatsapp_rust::download::MediaType;
+use whatsapp_rust::prelude::*;
+use whatsapp_rust::types::events::{Event, EventKind};
 
 pub struct SessionManager {
     pub storage: Arc<StorageManager>,
@@ -151,7 +151,8 @@ impl SessionManager {
                 let acc = acc_for_qr.clone();
                 let qr_clone = qr_arc.clone();
                 async move {
-                    let expires_at = chrono::Utc::now().timestamp_millis() + timeout.as_millis() as i64;
+                    let expires_at =
+                        chrono::Utc::now().timestamp_millis() + timeout.as_millis() as i64;
                     let resp = QrCodeResponse {
                         qr_data: code,
                         expires_at,
@@ -176,11 +177,9 @@ impl SessionManager {
                 let app = app_for_pair.clone();
                 let pair_clone = pair_arc.clone();
                 async move {
-                    let expires_at = chrono::Utc::now().timestamp_millis() + timeout.as_millis() as i64;
-                    let resp = crate::models::PairingCodeResponse {
-                        code,
-                        expires_at,
-                    };
+                    let expires_at =
+                        chrono::Utc::now().timestamp_millis() + timeout.as_millis() as i64;
+                    let resp = crate::models::PairingCodeResponse { code, expires_at };
                     {
                         let mut guard = pair_clone.lock().await;
                         *guard = Some(resp.clone());
@@ -270,7 +269,10 @@ impl SessionManager {
                     async move {
                         if let Event::HistorySync(lazy) = event.as_ref() {
                             if let Some(hs) = lazy.get() {
-                                println!("[Zappo] Recebido HistorySync: {} conversas sincronizadas", hs.conversations.len());
+                                println!(
+                                    "[Zappo] Recebido HistorySync: {} conversas sincronizadas",
+                                    hs.conversations.len()
+                                );
                                 let mut existing_chats = storage.load_chats(&acc);
                                 let mut any_updated = false;
 
@@ -293,14 +295,23 @@ impl SessionManager {
                                     for hmsg in &conv.messages {
                                         if let Some(wmi) = hmsg.message.as_option() {
                                             let key = wmi.key.as_option();
-                                            let msg_id = key.and_then(|k| k.id.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
-                                            let from_me = key.and_then(|k| k.from_me).unwrap_or(false);
-                                            let timestamp = wmi.message_timestamp.unwrap_or(0) as i64 * 1000;
+                                            let msg_id =
+                                                key.and_then(|k| k.id.clone()).unwrap_or_else(
+                                                    || uuid::Uuid::new_v4().to_string(),
+                                                );
+                                            let from_me =
+                                                key.and_then(|k| k.from_me).unwrap_or(false);
+                                            let timestamp =
+                                                wmi.message_timestamp.unwrap_or(0) as i64 * 1000;
                                             if timestamp > latest_timestamp {
                                                 latest_timestamp = timestamp;
                                             }
 
-                                            let text = wmi.message.as_option().and_then(|m| m.text_content()).map(|s| s.to_string());
+                                            let text = wmi
+                                                .message
+                                                .as_option()
+                                                .and_then(|m| m.text_content())
+                                                .map(|s| s.to_string());
                                             let sender_name = wmi.push_name.clone();
 
                                             let msg = Message {
@@ -310,7 +321,11 @@ impl SessionManager {
                                                 sender_name,
                                                 sender_jid: key.and_then(|k| k.participant.clone()),
                                                 text: text.clone(),
-                                                timestamp: if timestamp > 0 { timestamp } else { chrono::Utc::now().timestamp_millis() },
+                                                timestamp: if timestamp > 0 {
+                                                    timestamp
+                                                } else {
+                                                    chrono::Utc::now().timestamp_millis()
+                                                },
                                                 status: "read".to_string(),
                                                 media: None,
                                                 reply_to: None,
@@ -321,14 +336,19 @@ impl SessionManager {
                                             }
 
                                             if let Some(t) = text {
-                                                last_msg_preview = Some(crate::models::LastMessagePreview {
-                                                    id: msg_id,
-                                                    text: t,
-                                                    timestamp: if timestamp > 0 { timestamp } else { chrono::Utc::now().timestamp_millis() },
-                                                    from_me,
-                                                    r#type: "text".to_string(),
-                                                    status: Some("read".to_string()),
-                                                });
+                                                last_msg_preview =
+                                                    Some(crate::models::LastMessagePreview {
+                                                        id: msg_id,
+                                                        text: t,
+                                                        timestamp: if timestamp > 0 {
+                                                            timestamp
+                                                        } else {
+                                                            chrono::Utc::now().timestamp_millis()
+                                                        },
+                                                        from_me,
+                                                        r#type: "text".to_string(),
+                                                        status: Some("read".to_string()),
+                                                    });
                                             }
                                         }
                                     }
@@ -339,9 +359,15 @@ impl SessionManager {
                                     }
 
                                     let now = chrono::Utc::now().timestamp_millis();
-                                    let chat_ts = if latest_timestamp > 0 { latest_timestamp } else { now };
+                                    let chat_ts = if latest_timestamp > 0 {
+                                        latest_timestamp
+                                    } else {
+                                        now
+                                    };
 
-                                    if let Some(existing) = existing_chats.iter_mut().find(|c| c.jid == jid) {
+                                    if let Some(existing) =
+                                        existing_chats.iter_mut().find(|c| c.jid == jid)
+                                    {
                                         if existing.name == jid || existing.name.is_empty() {
                                             existing.name = chat_name;
                                         }
@@ -364,28 +390,30 @@ impl SessionManager {
                                             last_message: last_msg_preview,
                                             updated_at: chat_ts,
                                         });
-                                    any_updated = true;
-                                }
+                                        any_updated = true;
+                                    }
 
-                                if any_updated {
-                                    existing_chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
-                                    storage.save_chats(&acc, &existing_chats);
+                                    if any_updated {
+                                        existing_chats
+                                            .sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+                                        storage.save_chats(&acc, &existing_chats);
 
-                                    if let Some(ref app) = app {
-                                        let _ = app.emit(
-                                            "whatsapp://chats-updated",
-                                            serde_json::json!({
-                                                "accountId": acc,
-                                                "chats": existing_chats,
-                                            }),
-                                        );
+                                        if let Some(ref app) = app {
+                                            let _ = app.emit(
+                                                "whatsapp://chats-updated",
+                                                serde_json::json!({
+                                                    "accountId": acc,
+                                                    "chats": existing_chats,
+                                                }),
+                                            );
+                                        }
                                     }
                                 }
                             }
                         }
                     }
                 }
-            }})
+            })
             .on_message(move |ctx| {
                 let app = app_for_msg.clone();
                 let acc = acc_for_msg.clone();
@@ -401,18 +429,24 @@ impl SessionManager {
                     let mut media_att = None;
                     let settings = storage.load_settings();
                     use base64::Engine;
-                    let to_b64 = |opt: &Option<Vec<u8>>| opt.as_ref().map(|b| base64::engine::general_purpose::STANDARD.encode(b));
+                    let to_b64 = |opt: &Option<Vec<u8>>| {
+                        opt.as_ref()
+                            .map(|b| base64::engine::general_purpose::STANDARD.encode(b))
+                    };
 
                     // 1. Fotos
                     if let Some(img) = ctx.message.image_message.as_option() {
                         let file_size = img.file_length.unwrap_or(0);
-                        let should_download = settings.auto_download.images || file_size <= 15 * 1024 * 1024;
+                        let should_download =
+                            settings.auto_download.images || file_size <= 15 * 1024 * 1024;
                         let mut is_downloaded = false;
                         let mut local_path = None;
 
                         if should_download {
                             if let Ok(bytes) = ctx.client.download(img).await {
-                                let path = storage.media_dir(&acc, "images").join(format!("{}.jpg", msg_id));
+                                let path = storage
+                                    .media_dir(&acc, "images")
+                                    .join(format!("{}.jpg", msg_id));
                                 if std::fs::write(&path, bytes).is_ok() {
                                     is_downloaded = true;
                                     local_path = Some(path.to_string_lossy().to_string());
@@ -421,7 +455,10 @@ impl SessionManager {
                         }
 
                         let thumb = img.jpeg_thumbnail.as_ref().map(|b| {
-                            format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(b))
+                            format!(
+                                "data:image/jpeg;base64,{}",
+                                base64::engine::general_purpose::STANDARD.encode(b)
+                            )
                         });
 
                         media_att = Some(crate::models::MediaAttachment {
@@ -429,7 +466,10 @@ impl SessionManager {
                             media_type: "image".to_string(),
                             file_name: Some("foto.jpg".to_string()),
                             file_size,
-                            mime_type: img.mimetype.clone().unwrap_or_else(|| "image/jpeg".to_string()),
+                            mime_type: img
+                                .mimetype
+                                .clone()
+                                .unwrap_or_else(|| "image/jpeg".to_string()),
                             thumbnail_data_url: thumb,
                             local_path,
                             is_downloaded,
@@ -449,7 +489,9 @@ impl SessionManager {
                         let mut local_path = None;
 
                         if let Ok(bytes) = ctx.client.download(stk).await {
-                            let path = storage.media_dir(&acc, "stickers").join(format!("{}.webp", msg_id));
+                            let path = storage
+                                .media_dir(&acc, "stickers")
+                                .join(format!("{}.webp", msg_id));
                             if std::fs::write(&path, bytes).is_ok() {
                                 is_downloaded = true;
                                 local_path = Some(path.to_string_lossy().to_string());
@@ -483,7 +525,9 @@ impl SessionManager {
 
                         if should_download {
                             if let Ok(bytes) = ctx.client.download(vid).await {
-                                let path = storage.media_dir(&acc, "videos").join(format!("{}.mp4", msg_id));
+                                let path = storage
+                                    .media_dir(&acc, "videos")
+                                    .join(format!("{}.mp4", msg_id));
                                 if std::fs::write(&path, bytes).is_ok() {
                                     is_downloaded = true;
                                     local_path = Some(path.to_string_lossy().to_string());
@@ -492,7 +536,10 @@ impl SessionManager {
                         }
 
                         let thumb = vid.jpeg_thumbnail.as_ref().map(|b| {
-                            format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(b))
+                            format!(
+                                "data:image/jpeg;base64,{}",
+                                base64::engine::general_purpose::STANDARD.encode(b)
+                            )
                         });
 
                         media_att = Some(crate::models::MediaAttachment {
@@ -500,7 +547,10 @@ impl SessionManager {
                             media_type: "video".to_string(),
                             file_name: Some("video.mp4".to_string()),
                             file_size,
-                            mime_type: vid.mimetype.clone().unwrap_or_else(|| "video/mp4".to_string()),
+                            mime_type: vid
+                                .mimetype
+                                .clone()
+                                .unwrap_or_else(|| "video/mp4".to_string()),
                             thumbnail_data_url: thumb,
                             local_path,
                             is_downloaded,
@@ -522,7 +572,9 @@ impl SessionManager {
 
                         if should_download {
                             if let Ok(bytes) = ctx.client.download(aud).await {
-                                let path = storage.media_dir(&acc, "audio").join(format!("{}.ogg", msg_id));
+                                let path = storage
+                                    .media_dir(&acc, "audio")
+                                    .join(format!("{}.ogg", msg_id));
                                 if std::fs::write(&path, bytes).is_ok() {
                                     is_downloaded = true;
                                     local_path = Some(path.to_string_lossy().to_string());
@@ -533,10 +585,21 @@ impl SessionManager {
                         let is_ptt = aud.ptt.unwrap_or(false);
                         media_att = Some(crate::models::MediaAttachment {
                             id: format!("media_{}", msg_id),
-                            media_type: if is_ptt { "voice".to_string() } else { "audio".to_string() },
-                            file_name: Some(if is_ptt { "voz.ogg".to_string() } else { "audio.ogg".to_string() }),
+                            media_type: if is_ptt {
+                                "voice".to_string()
+                            } else {
+                                "audio".to_string()
+                            },
+                            file_name: Some(if is_ptt {
+                                "voz.ogg".to_string()
+                            } else {
+                                "audio.ogg".to_string()
+                            }),
                             file_size,
-                            mime_type: aud.mimetype.clone().unwrap_or_else(|| "audio/ogg".to_string()),
+                            mime_type: aud
+                                .mimetype
+                                .clone()
+                                .unwrap_or_else(|| "audio/ogg".to_string()),
                             thumbnail_data_url: None,
                             local_path,
                             is_downloaded,
@@ -552,14 +615,19 @@ impl SessionManager {
                     // 5. Documentos
                     else if let Some(doc) = ctx.message.document_message.as_option() {
                         let file_size = doc.file_length.unwrap_or(0);
-                        let file_name = doc.file_name.clone().unwrap_or_else(|| "documento.pdf".to_string());
+                        let file_name = doc
+                            .file_name
+                            .clone()
+                            .unwrap_or_else(|| "documento.pdf".to_string());
                         let should_download = settings.auto_download.documents;
                         let mut is_downloaded = false;
                         let mut local_path = None;
 
                         if should_download {
                             if let Ok(bytes) = ctx.client.download(doc).await {
-                                let path = storage.media_dir(&acc, "documents").join(format!("{}_{}", msg_id, file_name));
+                                let path = storage
+                                    .media_dir(&acc, "documents")
+                                    .join(format!("{}_{}", msg_id, file_name));
                                 if std::fs::write(&path, bytes).is_ok() {
                                     is_downloaded = true;
                                     local_path = Some(path.to_string_lossy().to_string());
@@ -572,7 +640,10 @@ impl SessionManager {
                             media_type: "document".to_string(),
                             file_name: Some(file_name),
                             file_size,
-                            mime_type: doc.mimetype.clone().unwrap_or_else(|| "application/pdf".to_string()),
+                            mime_type: doc
+                                .mimetype
+                                .clone()
+                                .unwrap_or_else(|| "application/pdf".to_string()),
                             thumbnail_data_url: None,
                             local_path,
                             is_downloaded,
@@ -620,10 +691,20 @@ impl SessionManager {
                     let mut chats = storage.load_chats(&acc);
                     let preview = crate::models::LastMessagePreview {
                         id: msg_id,
-                        text: text.unwrap_or_else(|| if media_att.is_some() { "[Foto]".to_string() } else { "".to_string() }),
+                        text: text.unwrap_or_else(|| {
+                            if media_att.is_some() {
+                                "[Foto]".to_string()
+                            } else {
+                                "".to_string()
+                            }
+                        }),
                         timestamp: now,
                         from_me: is_from_me,
-                        r#type: if media_att.is_some() { "media".to_string() } else { "text".to_string() },
+                        r#type: if media_att.is_some() {
+                            "media".to_string()
+                        } else {
+                            "text".to_string()
+                        },
                         status: Some("read".to_string()),
                     };
 
@@ -722,7 +803,8 @@ impl SessionManager {
         }
 
         let now = chrono::Utc::now().timestamp_millis();
-        let msg_id = real_msg_id.unwrap_or_else(|| format!("msg_{}_{}", now, uuid::Uuid::new_v4().simple()));
+        let msg_id =
+            real_msg_id.unwrap_or_else(|| format!("msg_{}_{}", now, uuid::Uuid::new_v4().simple()));
 
         let message = Message {
             id: msg_id.clone(),
@@ -806,8 +888,14 @@ impl SessionManager {
             _ => "documents",
         };
 
-        let ext = file_name.split('.').last().unwrap_or(if media_type == "image" { "jpg" } else { "bin" });
-        let dest = self.storage.media_dir(account_id, sub_folder).join(format!("{}.{}", msg_id, ext));
+        let ext = file_name
+            .split('.')
+            .last()
+            .unwrap_or(if media_type == "image" { "jpg" } else { "bin" });
+        let dest = self
+            .storage
+            .media_dir(account_id, sub_folder)
+            .join(format!("{}.{}", msg_id, ext));
         let _ = std::fs::write(&dest, &bytes);
         let dest_str = dest.to_string_lossy().to_string();
 
@@ -826,13 +914,18 @@ impl SessionManager {
         if let Some(client) = client_opt {
             if client.is_connected() {
                 if let Ok(jid) = chat_jid.parse::<Jid>() {
-                    match client.upload(bytes.clone(), wa_media_type, Default::default()).await {
+                    match client
+                        .upload(bytes.clone(), wa_media_type, Default::default())
+                        .await
+                    {
                         Ok(upload) => {
                             upload_meta = Some((
                                 upload.direct_path.clone(),
                                 base64::engine::general_purpose::STANDARD.encode(&upload.media_key),
-                                base64::engine::general_purpose::STANDARD.encode(&upload.file_sha256),
-                                base64::engine::general_purpose::STANDARD.encode(&upload.file_enc_sha256),
+                                base64::engine::general_purpose::STANDARD
+                                    .encode(&upload.file_sha256),
+                                base64::engine::general_purpose::STANDARD
+                                    .encode(&upload.file_enc_sha256),
                             ));
 
                             let wa_msg = match media_type {
@@ -861,19 +954,21 @@ impl SessionManager {
                                     },
                                 ),
                                 "sticker" => wa::Message {
-                                    sticker_message: MessageField::some(wa::message::StickerMessage {
-                                        url: Some(upload.url),
-                                        direct_path: Some(upload.direct_path),
-                                        media_key: Some(upload.media_key.to_vec()),
-                                        file_sha256: Some(upload.file_sha256.to_vec()),
-                                        file_enc_sha256: Some(upload.file_enc_sha256.to_vec()),
-                                        file_length: Some(upload.file_length),
-                                        media_key_timestamp: Some(upload.media_key_timestamp),
-                                        mimetype: Some("image/webp".to_string()),
-                                        height: Some(512),
-                                        width: Some(512),
-                                        ..Default::default()
-                                    }),
+                                    sticker_message: MessageField::some(
+                                        wa::message::StickerMessage {
+                                            url: Some(upload.url),
+                                            direct_path: Some(upload.direct_path),
+                                            media_key: Some(upload.media_key.to_vec()),
+                                            file_sha256: Some(upload.file_sha256.to_vec()),
+                                            file_enc_sha256: Some(upload.file_enc_sha256.to_vec()),
+                                            file_length: Some(upload.file_length),
+                                            media_key_timestamp: Some(upload.media_key_timestamp),
+                                            mimetype: Some("image/webp".to_string()),
+                                            height: Some(512),
+                                            width: Some(512),
+                                            ..Default::default()
+                                        },
+                                    ),
                                     ..Default::default()
                                 },
                                 _ => whatsapp_rust::media::document_message(
@@ -892,7 +987,10 @@ impl SessionManager {
                                     real_msg_id = Some(res.message_id);
                                 }
                                 Err(e) => {
-                                    eprintln!("[send_media] Falha ao enviar mensagem de mídia: {:?}", e);
+                                    eprintln!(
+                                        "[send_media] Falha ao enviar mensagem de mídia: {:?}",
+                                        e
+                                    );
                                 }
                             }
                         }
@@ -982,12 +1080,18 @@ impl SessionManager {
         Ok(message)
     }
 
-    pub async fn download_media(&self, account_id: &str, message_id: &str) -> Result<String, String> {
+    pub async fn download_media(
+        &self,
+        account_id: &str,
+        message_id: &str,
+    ) -> Result<String, String> {
         let data_dir = self.storage.base_dir.join("data");
         if let Ok(entries) = std::fs::read_dir(&data_dir) {
             for entry in entries.flatten() {
                 let file_name = entry.file_name().to_string_lossy().to_string();
-                if file_name.starts_with(&format!("msgs_{}_", account_id)) && file_name.ends_with(".json") {
+                if file_name.starts_with(&format!("msgs_{}_", account_id))
+                    && file_name.ends_with(".json")
+                {
                     if let Ok(content) = std::fs::read_to_string(entry.path()) {
                         if let Ok(mut msgs) = serde_json::from_str::<Vec<Message>>(&content) {
                             if let Some(target) = msgs.iter_mut().find(|m| m.id == message_id) {
@@ -1006,7 +1110,10 @@ impl SessionManager {
                                         "sticker" => "webp",
                                         _ => "pdf",
                                     };
-                                    let dest = self.storage.media_dir(account_id, sub_folder).join(format!("{}.{}", message_id, ext));
+                                    let dest = self
+                                        .storage
+                                        .media_dir(account_id, sub_folder)
+                                        .join(format!("{}.{}", message_id, ext));
 
                                     // Se o arquivo já existe mas tinha tamanho corrupto (<= 1024 bytes), remove para baixar real
                                     if let Ok(meta) = std::fs::metadata(&dest) {
@@ -1018,16 +1125,24 @@ impl SessionManager {
                                     // Baixa do WhatsApp CDN caso ainda não esteja no disco
                                     if !dest.exists() {
                                         use base64::Engine;
-                                        if let (Some(dp), Some(mk_b64), Some(fs_b64), Some(fe_b64)) = (
+                                        if let (
+                                            Some(dp),
+                                            Some(mk_b64),
+                                            Some(fs_b64),
+                                            Some(fe_b64),
+                                        ) = (
                                             &att.direct_path,
                                             &att.media_key,
                                             &att.file_sha256,
                                             &att.file_enc_sha256,
                                         ) {
                                             if let (Ok(mk), Ok(fs), Ok(fe)) = (
-                                                base64::engine::general_purpose::STANDARD.decode(mk_b64),
-                                                base64::engine::general_purpose::STANDARD.decode(fs_b64),
-                                                base64::engine::general_purpose::STANDARD.decode(fe_b64),
+                                                base64::engine::general_purpose::STANDARD
+                                                    .decode(mk_b64),
+                                                base64::engine::general_purpose::STANDARD
+                                                    .decode(fs_b64),
+                                                base64::engine::general_purpose::STANDARD
+                                                    .decode(fe_b64),
                                             ) {
                                                 let wa_media_type = match att.media_type.as_str() {
                                                     "image" => MediaType::Image,
@@ -1044,12 +1159,15 @@ impl SessionManager {
                                                     att.file_size,
                                                     wa_media_type,
                                                 );
-                                                let client_opt = self.active_client.lock().await.clone();
+                                                let client_opt =
+                                                    self.active_client.lock().await.clone();
                                                 if let Some(client) = client_opt {
                                                     if client.is_connected() {
                                                         match client.download(&params).await {
                                                             Ok(bytes) => {
-                                                                if let Err(e) = std::fs::write(&dest, bytes) {
+                                                                if let Err(e) =
+                                                                    std::fs::write(&dest, bytes)
+                                                                {
                                                                     return Err(format!("Falha ao salvar mídia em disco: {:?}", e));
                                                                 }
                                                             }
@@ -1061,14 +1179,18 @@ impl SessionManager {
                                                         return Err("WhatsApp não está conectado para baixar a mídia.".to_string());
                                                     }
                                                 } else {
-                                                    return Err("Nenhuma sessão ativa para baixar a mídia.".to_string());
+                                                    return Err(
+                                                        "Nenhuma sessão ativa para baixar a mídia."
+                                                            .to_string(),
+                                                    );
                                                 }
                                             }
                                         }
                                     }
 
                                     if !dest.exists() {
-                                        return Err("Não foi possível obter o arquivo de mídia.".to_string());
+                                        return Err("Não foi possível obter o arquivo de mídia."
+                                            .to_string());
                                     }
 
                                     let dest_str = dest.to_string_lossy().to_string();
@@ -1092,12 +1214,19 @@ impl SessionManager {
         Err("Mensagem com anexo não encontrada.".to_string())
     }
 
-    pub async fn clear_chat_messages(&self, account_id: &str, chat_jid: &str) -> Result<(), String> {
+    pub async fn clear_chat_messages(
+        &self,
+        account_id: &str,
+        chat_jid: &str,
+    ) -> Result<(), String> {
         let client_opt = self.active_client.lock().await.clone();
         if let Some(client) = client_opt {
             if client.is_connected() {
                 if let Ok(jid) = chat_jid.parse::<Jid>() {
-                    let _ = client.chat_actions().clear_chat(&jid, false, false, None).await;
+                    let _ = client
+                        .chat_actions()
+                        .clear_chat(&jid, false, false, None)
+                        .await;
                 }
             }
         }
@@ -1124,7 +1253,10 @@ impl SessionManager {
         phone_number: &str,
         name: Option<&str>,
     ) -> Result<crate::models::Chat, String> {
-        let clean_digits: String = phone_number.chars().filter(|c| c.is_ascii_digit()).collect();
+        let clean_digits: String = phone_number
+            .chars()
+            .filter(|c| c.is_ascii_digit())
+            .collect();
         if clean_digits.is_empty() {
             return Err("Número de telefone inválido".to_string());
         }

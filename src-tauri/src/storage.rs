@@ -1,9 +1,8 @@
+use crate::models::{
+    Account, AppSettings, Chat, ChatStorageUsage, Message, StorageCategoryStats, StorageStats,
+};
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::models::{
-    Account, AppSettings, Chat, ChatStorageUsage,
-    Message, StorageCategoryStats, StorageStats,
-};
 
 pub struct StorageManager {
     pub base_dir: PathBuf,
@@ -103,7 +102,10 @@ impl StorageManager {
     }
 
     pub fn load_chats(&self, account_id: &str) -> Vec<Chat> {
-        let file = self.base_dir.join("data").join(format!("chats_{}.json", account_id));
+        let file = self
+            .base_dir
+            .join("data")
+            .join(format!("chats_{}.json", account_id));
         if file.exists() {
             if let Ok(content) = fs::read_to_string(file) {
                 if let Ok(chats) = serde_json::from_str::<Vec<Chat>>(&content) {
@@ -116,14 +118,21 @@ impl StorageManager {
     }
 
     pub fn save_chats(&self, account_id: &str, chats: &[Chat]) {
-        let file = self.base_dir.join("data").join(format!("chats_{}.json", account_id));
+        let file = self
+            .base_dir
+            .join("data")
+            .join(format!("chats_{}.json", account_id));
         if let Ok(json) = serde_json::to_string_pretty(chats) {
             let _ = fs::write(file, json);
         }
     }
 
     pub fn load_messages(&self, account_id: &str, chat_jid: &str) -> Vec<Message> {
-        let file = self.base_dir.join("data").join(format!("msgs_{}_{}.json", account_id, chat_jid.replace('@', "_").replace('.', "_")));
+        let file = self.base_dir.join("data").join(format!(
+            "msgs_{}_{}.json",
+            account_id,
+            chat_jid.replace('@', "_").replace('.', "_")
+        ));
         if file.exists() {
             if let Ok(content) = fs::read_to_string(file) {
                 if let Ok(msgs) = serde_json::from_str::<Vec<Message>>(&content) {
@@ -136,7 +145,11 @@ impl StorageManager {
     }
 
     pub fn save_messages(&self, account_id: &str, chat_jid: &str, messages: &[Message]) {
-        let file = self.base_dir.join("data").join(format!("msgs_{}_{}.json", account_id, chat_jid.replace('@', "_").replace('.', "_")));
+        let file = self.base_dir.join("data").join(format!(
+            "msgs_{}_{}.json",
+            account_id,
+            chat_jid.replace('@', "_").replace('.', "_")
+        ));
         if let Ok(json) = serde_json::to_string_pretty(messages) {
             let _ = fs::write(file, json);
         }
@@ -148,7 +161,10 @@ impl StorageManager {
         self.save_chats(account_id, &chats);
 
         let sanitized_jid = chat_jid.replace('@', "_").replace('.', "_");
-        let msg_file = self.base_dir.join("data").join(format!("msgs_{}_{}.json", account_id, sanitized_jid));
+        let msg_file = self
+            .base_dir
+            .join("data")
+            .join(format!("msgs_{}_{}.json", account_id, sanitized_jid));
         if msg_file.exists() {
             let _ = fs::remove_file(msg_file);
         }
@@ -182,19 +198,51 @@ impl StorageManager {
         let media_base = self.base_dir.join("media");
         if let Some(acc) = account_id {
             let acc_path = media_base.join(acc);
-            self.count_category(&acc_path.join("images"), &mut images_count, &mut images_size);
-            self.count_category(&acc_path.join("videos"), &mut videos_count, &mut videos_size);
+            self.count_category(
+                &acc_path.join("images"),
+                &mut images_count,
+                &mut images_size,
+            );
+            self.count_category(
+                &acc_path.join("videos"),
+                &mut videos_count,
+                &mut videos_size,
+            );
             self.count_category(&acc_path.join("audio"), &mut audio_count, &mut audio_size);
             self.count_category(&acc_path.join("documents"), &mut docs_count, &mut docs_size);
-            self.count_category(&acc_path.join("stickers"), &mut stickers_count, &mut stickers_size);
+            self.count_category(
+                &acc_path.join("stickers"),
+                &mut stickers_count,
+                &mut stickers_size,
+            );
         } else if let Ok(accounts_entries) = fs::read_dir(&media_base) {
             for entry in accounts_entries.flatten() {
                 if entry.path().is_dir() {
-                    self.count_category(&entry.path().join("images"), &mut images_count, &mut images_size);
-                    self.count_category(&entry.path().join("videos"), &mut videos_count, &mut videos_size);
-                    self.count_category(&entry.path().join("audio"), &mut audio_count, &mut audio_size);
-                    self.count_category(&entry.path().join("documents"), &mut docs_count, &mut docs_size);
-                    self.count_category(&entry.path().join("stickers"), &mut stickers_count, &mut stickers_size);
+                    self.count_category(
+                        &entry.path().join("images"),
+                        &mut images_count,
+                        &mut images_size,
+                    );
+                    self.count_category(
+                        &entry.path().join("videos"),
+                        &mut videos_count,
+                        &mut videos_size,
+                    );
+                    self.count_category(
+                        &entry.path().join("audio"),
+                        &mut audio_count,
+                        &mut audio_size,
+                    );
+                    self.count_category(
+                        &entry.path().join("documents"),
+                        &mut docs_count,
+                        &mut docs_size,
+                    );
+                    self.count_category(
+                        &entry.path().join("stickers"),
+                        &mut stickers_count,
+                        &mut stickers_size,
+                    );
                 }
             }
         }
@@ -270,9 +318,14 @@ impl StorageManager {
                                     }
                                 }
                                 if media_count > 0 || size_bytes > 0 {
-                                    let chat_name = chat_names.get(&chat_jid).cloned().unwrap_or_else(|| {
-                                        chat_jid.split('@').next().unwrap_or(&chat_jid).to_string()
-                                    });
+                                    let chat_name =
+                                        chat_names.get(&chat_jid).cloned().unwrap_or_else(|| {
+                                            chat_jid
+                                                .split('@')
+                                                .next()
+                                                .unwrap_or(&chat_jid)
+                                                .to_string()
+                                        });
                                     top_chats.push(ChatStorageUsage {
                                         chat_jid,
                                         chat_name,
@@ -354,7 +407,9 @@ impl StorageManager {
             for entry in entries.flatten() {
                 let file_name = entry.file_name().to_string_lossy().to_string();
                 let sanitized_jid = chat_jid.replace('@', "_").replace('.', "_");
-                if file_name.ends_with(&format!("_{}.json", sanitized_jid)) && file_name.starts_with("msgs_") {
+                if file_name.ends_with(&format!("_{}.json", sanitized_jid))
+                    && file_name.starts_with("msgs_")
+                {
                     if let Ok(content) = fs::read_to_string(entry.path()) {
                         if let Ok(mut msgs) = serde_json::from_str::<Vec<Message>>(&content) {
                             let mut modified = false;
