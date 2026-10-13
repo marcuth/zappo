@@ -29,4 +29,5 @@ dirs = "6.0"
 rusqlite = { version = "0.39", features = ["bundled"] }
 base64 = "0.22"
 whatsapp-rust = { version = "0.7.0", default-features = false, features = ["sqlite-storage", "tokio-transport", "tokio-runtime", "ureq-client", "tokio-native", "signal"] }
+tauri-plugin-dialog = "2"
 

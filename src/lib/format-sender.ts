@@ -5,13 +5,26 @@
 export function formatPhoneNumber(jidOrPhone?: string): string {
     if (!jidOrPhone) return ""
 
-    // Extract digits before @ and strip any device suffix (:0, :1, etc)
+    // LIDs (@lid), canais/grupos (@g.us, @broadcast) e sistemas não são números de telefone
+    if (
+        jidOrPhone.includes("@lid") ||
+        jidOrPhone.includes("@g.us") ||
+        jidOrPhone.includes("@broadcast") ||
+        jidOrPhone.includes("@newsletter")
+    ) {
+        return ""
+    }
+
+    // Extrai dígitos antes do @ e desconsidera sufixos de dispositivo (:0, :1, etc)
     const raw = jidOrPhone.split("@")[0].split(":")[0]
     const digits = raw.replace(/\D/g, "")
 
-    if (!digits) return jidOrPhone
+    // Números internacionais E.164 válidos têm entre 10 e 15 dígitos
+    if (!digits || digits.length < 10 || digits.length > 15) {
+        return ""
+    }
 
-    // Brazilian numbers: 55 + 2 digits DDD + 8 or 9 digits
+    // Números do Brasil: 55 + DDD (2 dígitos) + 8 ou 9 dígitos
     if (
         digits.startsWith("55") &&
         (digits.length === 12 || digits.length === 13)
@@ -25,12 +38,16 @@ export function formatPhoneNumber(jidOrPhone?: string): string {
         }
     }
 
-    // Generic international format
-    if (digits.length >= 10) {
-        return `+${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}`
+    // América do Norte (EUA / Canadá): 1 + DDD (3 dígitos) + 7 dígitos
+    if (digits.startsWith("1") && digits.length === 11) {
+        const area = digits.slice(1, 4)
+        const prefix = digits.slice(4, 7)
+        const line = digits.slice(7)
+        return `+1 (${area}) ${prefix}-${line}`
     }
 
-    return `+${digits}`
+    // Formato internacional genérico
+    return `+${digits.slice(0, 2)} ${digits.slice(2, 6)} ${digits.slice(6)}`
 }
 
 /**

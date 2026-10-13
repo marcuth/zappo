@@ -23,6 +23,44 @@ import { MediaSendModal } from "./media-send-modal"
 import { FormattedText } from "./formatted-text"
 import { Button } from "../ui/button"
 
+function ExpandableMessageText({
+    text,
+    isFromMe,
+}: {
+    text: string
+    isFromMe: boolean
+}) {
+    const [isExpanded, setIsExpanded] = useState(false)
+    const isLong = text.length > 380 || (text.match(/\n/g) || []).length > 8
+
+    if (!isLong) {
+        return (
+            <div className="text-xs leading-relaxed pt-0.5">
+                <FormattedText text={text} />
+            </div>
+        )
+    }
+
+    const displayText = isExpanded ? text : text.slice(0, 320).trim() + "..."
+
+    return (
+        <div className="text-xs leading-relaxed pt-0.5">
+            <FormattedText text={displayText} />
+            <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className={`text-[11px] mt-1 inline-block font-semibold cursor-pointer select-none transition-opacity hover:opacity-80 ${
+                    isFromMe
+                        ? "text-primary-foreground underline"
+                        : "text-primary hover:underline"
+                }`}
+            >
+                {isExpanded ? "Ler menos" : "Ler mais..."}
+            </button>
+        </div>
+    )
+}
+
 export function ChatView() {
     const {
         activeChat,
@@ -190,9 +228,9 @@ export function ChatView() {
             </div>
 
             {/* Message Stream */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3.5 scrollbar-thin">
+            <div className="flex-1 overflow-y-auto p-4 scrollbar-thin">
                 {/* Security info banner */}
-                <div className="mx-auto max-w-md p-2 rounded-lg bg-muted/40 border border-border/60 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
+                <div className="mx-auto max-w-md p-2 mb-3 rounded-lg bg-muted/40 border border-border/60 text-center text-[11px] text-muted-foreground flex items-center justify-center gap-1.5">
                     <LuShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
                     <span>
                         As mensagens são protegidas com criptografia de ponta a
@@ -200,14 +238,40 @@ export function ChatView() {
                     </span>
                 </div>
 
-                {messages.map((message) => {
+                {messages.map((message, index) => {
                     const isFromMe = message.fromMe
+                    const prevMessage = index > 0 ? messages[index - 1] : null
+                    const isSameSender = Boolean(
+                        prevMessage &&
+                        prevMessage.fromMe === message.fromMe &&
+                        (message.fromMe
+                            ? true
+                            : (message.senderJid &&
+                                  prevMessage.senderJid ===
+                                      message.senderJid) ||
+                              (message.senderName &&
+                                  prevMessage.senderName ===
+                                      message.senderName)) &&
+                        Math.abs(message.timestamp - prevMessage.timestamp) <
+                            5 * 60 * 1000,
+                    )
+
                     const timeFormatted = new Date(
                         message.timestamp,
                     ).toLocaleTimeString([], {
                         hour: "2-digit",
                         minute: "2-digit",
                     })
+
+                    const senderColor = getSenderColor(
+                        message.senderJid || message.senderName,
+                    )
+                    const displayName =
+                        message.senderName ||
+                        formatPhoneNumber(message.senderJid) ||
+                        "Participante"
+                    const formattedPhone = formatPhoneNumber(message.senderJid)
+                    const initials = getSenderInitials(displayName)
 
                     const isSticker = message.media?.mediaType === "sticker"
 
@@ -217,9 +281,27 @@ export function ChatView() {
                                 key={message.id}
                                 className={`flex ${
                                     isFromMe ? "justify-end" : "justify-start"
-                                }`}
+                                } ${isSameSender ? "mt-1" : "mt-3.5"}`}
                             >
                                 <div className="relative group max-w-[70%]">
+                                    {/* Autor da figurinha em grupos */}
+                                    {activeChat.isGroup &&
+                                        !isFromMe &&
+                                        !isSameSender && (
+                                            <div className="flex items-center gap-1.5 mb-1 px-1">
+                                                <div
+                                                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold border shrink-0 ${senderColor.bg} ${senderColor.text}`}
+                                                >
+                                                    {initials}
+                                                </div>
+                                                <span
+                                                    className={`font-semibold text-[11px] truncate ${senderColor.text}`}
+                                                >
+                                                    {displayName}
+                                                </span>
+                                            </div>
+                                        )}
+
                                     <MediaMessageCard
                                         media={message.media}
                                         onDownload={() =>
@@ -248,7 +330,7 @@ export function ChatView() {
                             key={message.id}
                             className={`flex ${
                                 isFromMe ? "justify-end" : "justify-start"
-                            }`}
+                            } ${isSameSender ? "mt-1" : "mt-3.5"}`}
                         >
                             <div
                                 className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed space-y-1.5 ${
@@ -257,51 +339,32 @@ export function ChatView() {
                                         : "bg-card border border-border/80 text-foreground rounded-bl-xs"
                                 }`}
                             >
-                                {/* Group Participant Identification Header */}
+                                {/* Group Participant Identification Header (omitido se for mensagem contígua do mesmo autor) */}
                                 {activeChat.isGroup &&
                                     !isFromMe &&
-                                    (() => {
-                                        const senderColor = getSenderColor(
-                                            message.senderJid ||
-                                                message.senderName,
-                                        )
-                                        const displayName =
-                                            message.senderName ||
-                                            formatPhoneNumber(
-                                                message.senderJid,
-                                            ) ||
-                                            "Participante"
-                                        const formattedPhone =
-                                            formatPhoneNumber(message.senderJid)
-                                        const initials =
-                                            getSenderInitials(displayName)
-
-                                        return (
-                                            <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/40">
-                                                <div
-                                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border shrink-0 ${senderColor.bg} ${senderColor.text}`}
-                                                >
-                                                    {initials}
-                                                </div>
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    <span
-                                                        className={`font-semibold text-[11px] truncate ${senderColor.text}`}
-                                                    >
-                                                        {displayName}
-                                                    </span>
-                                                    {formattedPhone &&
-                                                        formattedPhone !==
-                                                            displayName && (
-                                                            <span className="text-[10px] text-muted-foreground/80 truncate font-mono">
-                                                                (
-                                                                {formattedPhone}
-                                                                )
-                                                            </span>
-                                                        )}
-                                                </div>
+                                    !isSameSender && (
+                                        <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/40">
+                                            <div
+                                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border shrink-0 ${senderColor.bg} ${senderColor.text}`}
+                                            >
+                                                {initials}
                                             </div>
-                                        )
-                                    })()}
+                                            <div className="flex items-center gap-1.5 min-w-0">
+                                                <span
+                                                    className={`font-semibold text-[11px] truncate ${senderColor.text}`}
+                                                >
+                                                    {displayName}
+                                                </span>
+                                                {formattedPhone &&
+                                                    formattedPhone !==
+                                                        displayName && (
+                                                        <span className="text-[10px] text-muted-foreground/80 truncate font-mono">
+                                                            ({formattedPhone})
+                                                        </span>
+                                                    )}
+                                            </div>
+                                        </div>
+                                    )}
 
                                 {/* Quoted Reply if any */}
                                 {message.replyTo && (
@@ -331,11 +394,12 @@ export function ChatView() {
                                     />
                                 )}
 
-                                {/* Text / Caption with WhatsApp Markdown & Clickable Links */}
+                                {/* Text / Caption with WhatsApp Markdown & Expandable view for long text */}
                                 {message.text && (
-                                    <div className="text-xs leading-relaxed pt-0.5">
-                                        <FormattedText text={message.text} />
-                                    </div>
+                                    <ExpandableMessageText
+                                        text={message.text}
+                                        isFromMe={isFromMe}
+                                    />
                                 )}
 
                                 {/* Timestamp & Status Checkmarks */}

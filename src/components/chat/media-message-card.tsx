@@ -143,6 +143,7 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
                     <ImageLightboxModal
                         isOpen={isLightboxOpen}
                         imageUrl={mediaSrc}
+                        localPath={media.localPath}
                         fileName={media.fileName}
                         fileSize={media.fileSize}
                         onClose={() => setIsLightboxOpen(false)}

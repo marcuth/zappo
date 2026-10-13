@@ -19,6 +19,7 @@ pub fn run() {
     };
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(app_state)
         .setup(move |app| {
@@ -58,6 +59,8 @@ pub fn run() {
             commands::clear_all_cache,
             commands::get_settings,
             commands::save_settings,
+            commands::save_file_to_path,
+            commands::save_bytes_to_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

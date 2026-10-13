@@ -7,12 +7,16 @@ import {
     LuZoomOut,
 } from "react-icons/lu"
 import { useEffect, useState, useCallback } from "react"
+import { save } from "@tauri-apps/plugin-dialog"
+import { invoke } from "@tauri-apps/api/core"
+import { toast } from "sonner"
 
 import { Button } from "../ui/button"
 
 interface ImageLightboxModalProps {
     isOpen: boolean
     imageUrl: string | null
+    localPath?: string
     fileName?: string
     fileSize?: number
     onClose: () => void
@@ -21,12 +25,70 @@ interface ImageLightboxModalProps {
 export function ImageLightboxModal({
     isOpen,
     imageUrl,
+    localPath,
     fileName = "Imagem",
     fileSize,
     onClose,
 }: ImageLightboxModalProps) {
     const [scale, setScale] = useState(1)
     const [rotation, setRotation] = useState(0)
+    const [isSaving, setIsSaving] = useState(false)
+
+    const handleSaveAs = useCallback(async () => {
+        if (!imageUrl) return
+        try {
+            setIsSaving(true)
+            const ext = fileName.includes(".")
+                ? fileName.split(".").pop() || "jpg"
+                : "jpg"
+
+            const destination = await save({
+                defaultPath: fileName,
+                filters: [
+                    {
+                        name: "Imagem",
+                        extensions: [ext, "jpg", "jpeg", "png", "webp"],
+                    },
+                ],
+            })
+
+            if (!destination) {
+                setIsSaving(false)
+                return
+            }
+
+            if (localPath) {
+                await invoke("save_file_to_path", {
+                    sourcePath: localPath,
+                    destinationPath: destination,
+                })
+                toast.success("Imagem salva com sucesso!")
+            } else {
+                const response = await fetch(imageUrl)
+                const blob = await response.blob()
+                const reader = new FileReader()
+                reader.onloadend = async () => {
+                    const result = reader.result as string
+                    const base64data = result.includes(",")
+                        ? result.split(",")[1]
+                        : result
+                    if (base64data) {
+                        await invoke("save_bytes_to_path", {
+                            dataBase64: base64data,
+                            destinationPath: destination,
+                        })
+                        toast.success("Imagem salva com sucesso!")
+                    }
+                }
+                reader.readAsDataURL(blob)
+            }
+        } catch (error) {
+            console.error("Erro ao salvar imagem:", error)
+            toast.error("Não foi possível salvar a imagem")
+        } finally {
+            setIsSaving(false)
+        }
+    }, [imageUrl, localPath, fileName])
 
     const handleZoomIn = useCallback(
         () => setScale((s) => Math.min(s + 0.25, 4)),
@@ -136,14 +198,16 @@ export function ImageLightboxModal({
                         <LuRotateCcw className="h-4 w-4" />
                     </Button>
 
-                    <a
-                        href={imageUrl}
-                        download={fileName}
-                        className="inline-flex items-center justify-center h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                        title="Baixar / Salvar Imagem"
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        disabled={isSaving}
+                        className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/10 rounded-lg"
+                        onClick={handleSaveAs}
+                        title="Salvar imagem no computador (Salvar Como)"
                     >
                         <LuDownload className="h-4 w-4" />
-                    </a>
+                    </Button>
 
                     <div className="h-4 w-px bg-white/20 mx-1" />
 

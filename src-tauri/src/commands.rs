@@ -263,3 +263,21 @@ pub fn save_settings(state: State<AppState>, settings: AppSettings) -> Result<()
     state.storage.save_settings(&settings);
     Ok(())
 }
+
+#[tauri::command]
+pub fn save_file_to_path(source_path: String, destination_path: String) -> Result<(), String> {
+    std::fs::copy(&source_path, &destination_path)
+        .map_err(|e| format!("Erro ao salvar arquivo: {}", e))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn save_bytes_to_path(data_base64: String, destination_path: String) -> Result<(), String> {
+    use base64::Engine;
+    let bytes = base64::engine::general_purpose::STANDARD
+        .decode(&data_base64)
+        .map_err(|e| format!("Erro base64: {}", e))?;
+    std::fs::write(&destination_path, bytes)
+        .map_err(|e| format!("Erro ao salvar arquivo: {}", e))?;
+    Ok(())
+}
