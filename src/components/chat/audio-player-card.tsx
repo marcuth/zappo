@@ -1,5 +1,5 @@
-import { LuMic, LuPause, LuPlay } from "react-icons/lu"
 import React, { useEffect, useRef, useState } from "react"
+import { LuMic, LuPause, LuPlay } from "react-icons/lu"
 
 import { Button } from "../ui/button"
 
@@ -7,38 +7,62 @@ interface AudioPlayerCardProps {
     src: string
     isVoice?: boolean
     fileSize?: number
+    durationSeconds?: number
 }
 
 const PLAYBACK_SPEEDS = [1, 1.5, 2]
+const WAVEFORM_HEIGHTS = [
+    25, 40, 65, 90, 45, 30, 80, 100, 70, 50, 35, 85, 60, 40,
+    25, 40, 65, 90, 45, 30, 80, 100, 70, 50, 35, 85, 60, 40,
+]
 
 export function AudioPlayerCard({
     src,
     isVoice = false,
     fileSize,
+    durationSeconds,
 }: AudioPlayerCardProps) {
     const audioRef = useRef<HTMLAudioElement | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [currentTime, setCurrentTime] = useState(0)
-    const [duration, setDuration] = useState(0)
+    const [audioDuration, setAudioDuration] = useState<number | null>(null)
     const [speedIndex, setSpeedIndex] = useState(0)
-    const [waveformHeights] = useState(() =>
-        // Deterministic decorative waveform bars resembling WhatsApp voice note
-        Array.from({ length: 28 }, (_, i) => {
-            const pattern = [
-                25, 40, 65, 90, 45, 30, 80, 100, 70, 50, 35, 85, 60, 40,
-            ]
-            return pattern[i % pattern.length]
-        }),
-    )
+
+    const effectiveDuration =
+        audioDuration && audioDuration > 0
+            ? audioDuration
+            : durationSeconds && durationSeconds > 0
+              ? durationSeconds
+              : 0
 
     useEffect(() => {
         const audio = audioRef.current
         if (!audio) return
 
-        const handleTimeUpdate = () => setCurrentTime(audio.currentTime)
+        const handleTimeUpdate = () => {
+            if (audio.currentTime && !isNaN(audio.currentTime)) {
+                setCurrentTime(audio.currentTime)
+            }
+        }
         const handleLoadedMetadata = () => {
-            if (audio.duration && !isNaN(audio.duration)) {
-                setDuration(audio.duration)
+            if (
+                audio.duration &&
+                !isNaN(audio.duration) &&
+                isFinite(audio.duration)
+            ) {
+                setAudioDuration(audio.duration)
+            } else if (durationSeconds && durationSeconds > 0) {
+                setAudioDuration(durationSeconds)
+            } else if (audio.duration === Infinity) {
+                // MediaRecorder WebM/Ogg workaround to resolve Infinity duration
+                audio.currentTime = 1e101
+                audio.ontimeupdate = () => {
+                    audio.ontimeupdate = handleTimeUpdate
+                    audio.currentTime = 0
+                    if (isFinite(audio.duration)) {
+                        setAudioDuration(audio.duration)
+                    }
+                }
             }
         }
         const handleEnded = () => {
@@ -55,7 +79,7 @@ export function AudioPlayerCard({
             audio.removeEventListener("loadedmetadata", handleLoadedMetadata)
             audio.removeEventListener("ended", handleEnded)
         }
-    }, [src])
+    }, [src, durationSeconds])
 
     const togglePlay = () => {
         const audio = audioRef.current
@@ -74,12 +98,12 @@ export function AudioPlayerCard({
 
     const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
         const audio = audioRef.current
-        if (!audio || !duration) return
+        if (!audio || !effectiveDuration) return
 
         const rect = e.currentTarget.getBoundingClientRect()
         const clickX = e.clientX - rect.left
         const percentage = Math.max(0, Math.min(1, clickX / rect.width))
-        const newTime = percentage * duration
+        const newTime = percentage * effectiveDuration
         audio.currentTime = newTime
         setCurrentTime(newTime)
     }
@@ -95,7 +119,8 @@ export function AudioPlayerCard({
     }
 
     const formatTime = (seconds: number) => {
-        if (!seconds || isNaN(seconds)) return "0:00"
+        if (!seconds || isNaN(seconds) || !isFinite(seconds) || seconds <= 0)
+            return "0:00"
         const mins = Math.floor(seconds / 60)
         const secs = Math.floor(seconds % 60)
         return `${mins}:${secs < 10 ? "0" : ""}${secs}`
@@ -109,7 +134,7 @@ export function AudioPlayerCard({
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
     }
 
-    const progress = duration > 0 ? (currentTime / duration) * 100 : 0
+    const progress = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0
 
     return (
         <div className="mt-1.5 p-3 rounded-2xl border border-border/60 bg-card/95 backdrop-blur shadow-sm max-w-sm w-72 sm:w-80 space-y-2.5">
@@ -154,9 +179,9 @@ export function AudioPlayerCard({
                     className="flex-1 h-9 flex items-center gap-0.5 px-1 py-1 bg-muted/40 hover:bg-muted/70 rounded-xl cursor-pointer transition-colors relative group select-none"
                     title="Clique para navegar pelo áudio"
                 >
-                    {waveformHeights.map((h, index) => {
+                    {WAVEFORM_HEIGHTS.map((h, index) => {
                         const barProgress =
-                            (index / waveformHeights.length) * 100
+                            (index / WAVEFORM_HEIGHTS.length) * 100
                         const isPlayed = barProgress <= progress
 
                         return (
@@ -191,7 +216,7 @@ export function AudioPlayerCard({
                     >
                         {PLAYBACK_SPEEDS[speedIndex]}x
                     </button>
-                    <span>{formatTime(duration)}</span>
+                    <span>{formatTime(effectiveDuration)}</span>
                 </div>
             </div>
         </div>

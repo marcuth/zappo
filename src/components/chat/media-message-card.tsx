@@ -213,6 +213,7 @@ export function MediaMessageCard({
                     src={mediaSrc}
                     isVoice={media.mediaType === "voice"}
                     fileSize={media.fileSize}
+                    durationSeconds={media.durationSeconds}
                 />
             )
         }

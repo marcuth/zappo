@@ -17,6 +17,7 @@ import {
 } from "react-icons/lu"
 import { useCallback, useEffect, useRef, useState, KeyboardEvent } from "react"
 import { convertFileSrc } from "@tauri-apps/api/core"
+import fixWebmDuration from "fix-webm-duration"
 import { toast } from "sonner"
 
 import {
@@ -320,9 +321,22 @@ export function ChatView() {
                     return
                 }
 
+                let finalBlob = audioBlob
+                const durationMs = Math.max(1000, recordingDuration * 1000)
+
+                // Inject duration header into the container so mobile and desktop players know exact length
+                try {
+                    finalBlob = await fixWebmDuration(audioBlob, durationMs)
+                } catch (metaErr) {
+                    console.warn(
+                        "Não foi possível injetar duração no cabeçalho do áudio:",
+                        metaErr,
+                    )
+                }
+
                 const ext = recorder.mimeType.includes("ogg") ? "ogg" : "webm"
                 const audioFile = new File(
-                    [audioBlob],
+                    [finalBlob],
                     `voice_note_${Date.now()}.${ext}`,
                     { type: recorder.mimeType || "audio/ogg" },
                 )
