@@ -9,19 +9,25 @@ import {
     LuTrash2,
     LuUsers,
 } from "react-icons/lu"
-import { useEffect, useRef, useState, KeyboardEvent } from "react"
+import { useCallback, useEffect, useRef, useState, KeyboardEvent } from "react"
 
 import {
     formatPhoneNumber,
     getSenderColor,
     getSenderInitials,
 } from "../../lib/format-sender"
+import { MessageContextMenu } from "./message-context-menu"
+import { MessageInfoModal } from "./message-info-modal"
 import { EmojiStickerPicker } from "./emoji-sticker-picker"
 import { useAccount } from "../providers/account-provider"
 import { MediaMessageCard } from "./media-message-card"
 import { MediaSendModal } from "./media-send-modal"
 import { FormattedText } from "./formatted-text"
 import { Button } from "../ui/button"
+import { Message } from "../../types"
+
+// Map: messageId -> emoji[]
+type ReactionsMap = Record<string, string[]>
 
 function ExpandableMessageText({
     text,
@@ -78,8 +84,46 @@ export function ChatView() {
     const [pendingFile, setPendingFile] = useState<File | null>(null)
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
     const [isSyncingGroups, setIsSyncingGroups] = useState(false)
+
+    // Context menu
+    const [contextMenu, setContextMenu] = useState<{
+        isOpen: boolean
+        x: number
+        y: number
+        message: Message | null
+    }>({ isOpen: false, x: 0, y: 0, message: null })
+
+    // Message info modal
+    const [infoMessage, setInfoMessage] = useState<Message | null>(null)
+
+    // Reactions map: messageId -> list of emoji strings added locally
+    const [reactions, setReactions] = useState<ReactionsMap>({})
+
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const openContextMenu = useCallback(
+        (e: React.MouseEvent | React.TouchEvent, message: Message) => {
+            if ("preventDefault" in e) e.preventDefault()
+            const clientX =
+                "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+            const clientY =
+                "touches" in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+            setContextMenu({ isOpen: true, x: clientX, y: clientY, message })
+        },
+        [],
+    )
+
+    const handleReact = useCallback((messageId: string, emoji: string) => {
+        setReactions((prev) => {
+            const current = prev[messageId] ?? []
+            // Toggle: remove if already present, add otherwise
+            const next = current.includes(emoji)
+                ? current.filter((e) => e !== emoji)
+                : [...current, emoji]
+            return { ...prev, [messageId]: next }
+        })
+    }, [])
 
     // Auto-scroll to bottom on new message
     useEffect(() => {
@@ -276,6 +320,7 @@ export function ChatView() {
                     const isSticker = message.media?.mediaType === "sticker"
 
                     if (isSticker && message.media) {
+                        const msgReactions = reactions[message.id] ?? []
                         return (
                             <div
                                 key={message.id}
@@ -283,7 +328,10 @@ export function ChatView() {
                                     isFromMe ? "justify-end" : "justify-start"
                                 } ${isSameSender ? "mt-1" : "mt-3.5"}`}
                             >
-                                <div className="relative group max-w-[70%]">
+                                <div
+                                    className="relative group max-w-[70%]"
+                                    onContextMenu={(e) => openContextMenu(e, message)}
+                                >
                                     {/* Autor da figurinha em grupos */}
                                     {activeChat.isGroup &&
                                         !isFromMe &&
@@ -320,20 +368,38 @@ export function ChatView() {
                                             <LuCheckCheck className="h-3 w-3 text-emerald-500" />
                                         )}
                                     </div>
+
+                                    {/* Reactions */}
+                                    {msgReactions.length > 0 && (
+                                        <div className={`flex flex-wrap gap-0.5 mt-1 px-1 ${isFromMe ? "justify-end" : "justify-start"}`}>
+                                            {msgReactions.map((emoji) => (
+                                                <button
+                                                    key={emoji}
+                                                    onClick={() => handleReact(message.id, emoji)}
+                                                    title="Remover reação"
+                                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border/60 text-[12px] hover:bg-muted/80 transition-colors cursor-pointer font-emoji"
+                                                >
+                                                    {emoji}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )
                     }
 
+                    const msgReactions = reactions[message.id] ?? []
                     return (
                         <div
                             key={message.id}
-                            className={`flex ${
-                                isFromMe ? "justify-end" : "justify-start"
+                            className={`flex flex-col ${
+                                isFromMe ? "items-end" : "items-start"
                             } ${isSameSender ? "mt-1" : "mt-3.5"}`}
                         >
                             <div
-                                className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed space-y-1.5 ${
+                                onContextMenu={(e) => openContextMenu(e, message)}
+                                className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed space-y-1.5 cursor-context-menu ${
                                     isFromMe
                                         ? "bg-primary text-primary-foreground rounded-br-xs"
                                         : "bg-card border border-border/80 text-foreground rounded-bl-xs"
@@ -416,11 +482,56 @@ export function ChatView() {
                                     )}
                                 </div>
                             </div>
+
+                            {/* Emoji Reactions */}
+                            {msgReactions.length > 0 && (
+                                <div className="flex flex-wrap gap-0.5 mt-1 max-w-[70%]">
+                                    {msgReactions.map((emoji) => (
+                                        <button
+                                            key={emoji}
+                                            onClick={() => handleReact(message.id, emoji)}
+                                            title="Remover reação"
+                                            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border/60 text-[13px] hover:bg-muted/80 transition-colors cursor-pointer font-emoji shadow-sm"
+                                        >
+                                            {emoji}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )
                 })}
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* Message Context Menu (right-click) */}
+            <MessageContextMenu
+                isOpen={contextMenu.isOpen}
+                x={contextMenu.x}
+                y={contextMenu.y}
+                hasText={Boolean(contextMenu.message?.text)}
+                onClose={() =>
+                    setContextMenu((prev) => ({ ...prev, isOpen: false }))
+                }
+                onCopyText={async () => {
+                    if (contextMenu.message?.text) {
+                        await navigator.clipboard.writeText(contextMenu.message.text)
+                    }
+                }}
+                onViewInfo={() => setInfoMessage(contextMenu.message)}
+                onReact={(emoji) => {
+                    if (contextMenu.message) {
+                        handleReact(contextMenu.message.id, emoji)
+                    }
+                }}
+            />
+
+            {/* Message Info Modal */}
+            <MessageInfoModal
+                isOpen={Boolean(infoMessage)}
+                message={infoMessage}
+                onClose={() => setInfoMessage(null)}
+            />
 
             {/* Media Send Modal with Caption Input & Preview */}
             <MediaSendModal

@@ -96,6 +96,7 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [ ] **Sincronização de Limpeza:** Aprimorar a sincronização ao limpar e excluir conversas junto aos servidores do WhatsApp.
 - [ ] **Reações a Mensagens:** Permitir adicionar e visualizar reações com emojis nas mensagens recebidas e enviadas.
 - [ ] **Expansão de Emojis:** Adicionar mais emojis ao acervo do seletor abrangendo animais, comidas, atividades e símbolos adicionais.
+- Ver dados da mensagem
 
 ### 👥 Gestão de Grupos e Contatos
 
