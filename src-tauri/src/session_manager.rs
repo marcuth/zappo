@@ -1170,7 +1170,8 @@ impl SessionManager {
                                         },
                                     );
                                     if is_view_once.unwrap_or(false) {
-                                        msg.image_message.get_or_insert_default().view_once = is_view_once;
+                                        msg.image_message.get_or_insert_default().view_once =
+                                            is_view_once;
                                     }
                                     msg
                                 }
@@ -1184,7 +1185,8 @@ impl SessionManager {
                                         },
                                     );
                                     if is_view_once.unwrap_or(false) {
-                                        msg.video_message.get_or_insert_default().view_once = is_view_once;
+                                        msg.video_message.get_or_insert_default().view_once =
+                                            is_view_once;
                                     }
                                     msg
                                 }
@@ -2008,12 +2010,14 @@ pub fn inject_whatsapp_sticker_metadata(
             _has_vp8x = true;
             vp8x_flags = chunk_data[0];
             // Dimensões canvas em VP8X: 24-bit width-1, 24-bit height-1
-            canvas_width = 1 + (chunk_data[4] as u32
-                | ((chunk_data[5] as u32) << 8)
-                | ((chunk_data[6] as u32) << 16));
-            canvas_height = 1 + (chunk_data[7] as u32
-                | ((chunk_data[8] as u32) << 8)
-                | ((chunk_data[9] as u32) << 16));
+            canvas_width = 1
+                + (chunk_data[4] as u32
+                    | ((chunk_data[5] as u32) << 8)
+                    | ((chunk_data[6] as u32) << 16));
+            canvas_height = 1
+                + (chunk_data[7] as u32
+                    | ((chunk_data[8] as u32) << 8)
+                    | ((chunk_data[9] as u32) << 16));
         } else if fourcc != b"EXIF" {
             // Ignora chunks EXIF antigos para substituir pelo novo
             chunks.push((fourcc, chunk_data));
@@ -2071,4 +2075,3 @@ pub fn inject_whatsapp_sticker_metadata(
 
     new_webp
 }
-

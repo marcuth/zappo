@@ -12,8 +12,8 @@ interface AudioPlayerCardProps {
 
 const PLAYBACK_SPEEDS = [1, 1.5, 2]
 const WAVEFORM_HEIGHTS = [
-    25, 40, 65, 90, 45, 30, 80, 100, 70, 50, 35, 85, 60, 40,
-    25, 40, 65, 90, 45, 30, 80, 100, 70, 50, 35, 85, 60, 40,
+    25, 40, 65, 90, 45, 30, 80, 100, 70, 50, 35, 85, 60, 40, 25, 40, 65, 90, 45,
+    30, 80, 100, 70, 50, 35, 85, 60, 40,
 ]
 
 export function AudioPlayerCard({
@@ -134,7 +134,8 @@ export function AudioPlayerCard({
         return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`
     }
 
-    const progress = effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0
+    const progress =
+        effectiveDuration > 0 ? (currentTime / effectiveDuration) * 100 : 0
 
     return (
         <div className="mt-1.5 p-3 rounded-2xl border border-border/60 bg-card/95 backdrop-blur shadow-sm max-w-sm w-72 sm:w-80 space-y-2.5">
