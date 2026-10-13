@@ -1,8 +1,8 @@
 {
     "$schema": "https://schema.tauri.app/config/2",
-    "productName": "tauri-simple-app-template",
+    "productName": "Zappo",
     "version": "0.1.0",
-    "identifier": "dev.marcuth.tauri-simple-app-template",
+    "identifier": "dev.marcuth.zappo",
     "build": {
         "beforeDevCommand": "npm run dev",
         "devUrl": "http://localhost:1420",
@@ -12,13 +12,20 @@
     "app": {
         "windows": [
             {
-                "title": "tauri-simple-app-template",
-                "width": 800,
-                "height": 600
+                "title": "Zappo",
+                "width": 1200,
+                "height": 800,
+                "minWidth": 800,
+                "minHeight": 600,
+                "maximized": true
             }
         ],
         "security": {
-            "csp": null
+            "csp": null,
+            "assetProtocol": {
+                "enable": true,
+                "scope": ["**"]
+            }
         }
     },
     "bundle": {

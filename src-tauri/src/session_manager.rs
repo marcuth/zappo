@@ -1,0 +1,1194 @@
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use tauri::{AppHandle, Emitter};
+use whatsapp_rust::prelude::*;
+use whatsapp_rust::download::MediaType;
+use whatsapp_rust::types::events::{Event, EventKind};
+use crate::models::{Account, Message, QrCodeResponse};
+use crate::storage::StorageManager;
+
+pub struct SessionManager {
+    pub storage: Arc<StorageManager>,
+    pub active_account_id: Mutex<Option<String>>,
+    pub active_bot_handle: Mutex<Option<whatsapp_rust::bot::BotHandle>>,
+    pub active_client: Mutex<Option<Arc<whatsapp_rust::Client>>>,
+    pub app_handle: Mutex<Option<AppHandle>>,
+    pub current_qr: Arc<Mutex<Option<QrCodeResponse>>>,
+    pub current_pairing_code: Arc<Mutex<Option<crate::models::PairingCodeResponse>>>,
+}
+
+impl SessionManager {
+    pub fn new(storage: Arc<StorageManager>) -> Self {
+        let accounts = storage.load_accounts();
+        let active_id = accounts.iter().find(|a| a.is_active).map(|a| a.id.clone());
+
+        Self {
+            storage,
+            active_account_id: Mutex::new(active_id),
+            active_bot_handle: Mutex::new(None),
+            active_client: Mutex::new(None),
+            app_handle: Mutex::new(None),
+            current_qr: Arc::new(Mutex::new(None)),
+            current_pairing_code: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    pub async fn get_current_qr(&self) -> Option<QrCodeResponse> {
+        let guard = self.current_qr.lock().await;
+        guard.clone()
+    }
+
+    pub async fn set_app_handle(&self, handle: AppHandle) {
+        let mut app = self.app_handle.lock().await;
+        *app = Some(handle);
+    }
+
+    /// Alterna a conta ativa com isolamento total:
+    /// Desconecta o socket da conta anterior e inicia apenas a conta selecionada.
+    /// Nenhuma conta inativa processa ou recebe mensagens!
+    pub async fn switch_account(&self, target_account_id: &str) -> Result<Account, String> {
+        // 1. Desconecta a sessão ativa anterior se houver
+        {
+            let mut handle_guard = self.active_bot_handle.lock().await;
+            if let Some(handle) = handle_guard.take() {
+                handle.shutdown().await;
+            }
+            let mut client_guard = self.active_client.lock().await;
+            *client_guard = None;
+        }
+
+        // 2. Atualiza estado das contas no armazenamento
+        let mut accounts = self.storage.load_accounts();
+        let mut target_account = None;
+
+        for acc in &mut accounts {
+            if acc.id == target_account_id {
+                acc.is_active = true;
+                acc.status = "connected".to_string();
+                acc.last_connected_at = Some(chrono::Utc::now().timestamp_millis());
+                target_account = Some(acc.clone());
+            } else {
+                acc.is_active = false;
+                acc.status = "standby".to_string(); // Inativa / em espera (sem rede)
+            }
+        }
+
+        let target = target_account.ok_or_else(|| "Conta não encontrada".to_string())?;
+        self.storage.save_accounts(&accounts);
+
+        // 3. Define a conta ativa
+        {
+            let mut active_guard = self.active_account_id.lock().await;
+            *active_guard = Some(target_account_id.to_string());
+        }
+
+        // 4. Inicia a sessão whatsapp-rust para a conta ativa
+        self.spawn_active_session(target_account_id).await?;
+
+        // 5. Emite evento de estado de conexão
+        if let Some(app) = self.app_handle.lock().await.as_ref() {
+            let _ = app.emit(
+                "whatsapp://connection-state",
+                serde_json::json!({
+                    "accountId": target_account_id,
+                    "status": "connected"
+                }),
+            );
+        }
+
+        Ok(target)
+    }
+
+    /// Inicia a conexão WhatsApp usando whatsapp-rust para a conta ativa
+    pub async fn spawn_active_session(&self, account_id: &str) -> Result<(), String> {
+        let db_path = self.storage.account_db_path(account_id);
+        let db_path_str = db_path.to_string_lossy().to_string();
+
+        let store = match SqliteStore::new(&db_path_str).await {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("[Zappo] Falha ao abrir SqliteStore: {:?}", e);
+                return Ok(()); // Permite prosseguir mesmo offline
+            }
+        };
+
+        let app_handle_opt = self.app_handle.lock().await.clone();
+        let app_for_qr = app_handle_opt.clone();
+        let acc_for_qr = account_id.to_string();
+
+        let app_for_msg = app_handle_opt.clone();
+        let acc_for_msg = account_id.to_string();
+        let storage_for_msg = self.storage.clone();
+
+        // Limpa QR e código de pareamento anteriores
+        {
+            let mut qr_guard = self.current_qr.lock().await;
+            *qr_guard = None;
+            let mut pair_guard = self.current_pairing_code.lock().await;
+            *pair_guard = None;
+        }
+
+        let app_for_pair = app_handle_opt.clone();
+        let app_for_conn = app_handle_opt.clone();
+        let acc_for_conn = account_id.to_string();
+        let storage_for_conn = self.storage.clone();
+
+        let app_for_logout = app_handle_opt.clone();
+        let acc_for_logout = account_id.to_string();
+        let storage_for_logout = self.storage.clone();
+
+        let app_for_sync = app_handle_opt.clone();
+        let acc_for_sync = account_id.to_string();
+        let storage_for_sync = self.storage.clone();
+
+        let qr_arc = self.current_qr.clone();
+        let pair_arc = self.current_pairing_code.clone();
+
+        let bot_result = Bot::builder()
+            .with_backend(store)
+            .on_qr_code(move |code, timeout| {
+                let app = app_for_qr.clone();
+                let acc = acc_for_qr.clone();
+                let qr_clone = qr_arc.clone();
+                async move {
+                    let expires_at = chrono::Utc::now().timestamp_millis() + timeout.as_millis() as i64;
+                    let resp = QrCodeResponse {
+                        qr_data: code,
+                        expires_at,
+                    };
+                    {
+                        let mut guard = qr_clone.lock().await;
+                        *guard = Some(resp.clone());
+                    }
+                    if let Some(app) = app {
+                        let _ = app.emit("whatsapp://qr-code", resp);
+                        let _ = app.emit(
+                            "whatsapp://connection-state",
+                            serde_json::json!({
+                                "accountId": acc,
+                                "status": "pairing"
+                            }),
+                        );
+                    }
+                }
+            })
+            .on_pair_code(move |code, timeout| {
+                let app = app_for_pair.clone();
+                let pair_clone = pair_arc.clone();
+                async move {
+                    let expires_at = chrono::Utc::now().timestamp_millis() + timeout.as_millis() as i64;
+                    let resp = crate::models::PairingCodeResponse {
+                        code,
+                        expires_at,
+                    };
+                    {
+                        let mut guard = pair_clone.lock().await;
+                        *guard = Some(resp.clone());
+                    }
+                    if let Some(app) = app {
+                        let _ = app.emit("whatsapp://pairing-code", resp);
+                    }
+                }
+            })
+            .on_connected({
+                let app = app_for_conn.clone();
+                let acc = acc_for_conn.clone();
+                let storage = storage_for_conn.clone();
+                move |_client| {
+                    let app = app.clone();
+                    let acc = acc.clone();
+                    let storage = storage.clone();
+                    async move {
+                        println!("[Zappo] Conta {} conectada com sucesso ao WhatsApp!", acc);
+                        let mut accounts = storage.load_accounts();
+                        if let Some(target) = accounts.iter_mut().find(|a| a.id == acc) {
+                            target.status = "connected".to_string();
+                            target.is_active = true;
+                            target.last_connected_at = Some(chrono::Utc::now().timestamp_millis());
+                        }
+                        storage.save_accounts(&accounts);
+
+                        let existing_chats = storage.load_chats(&acc);
+                        if let Some(app) = app {
+                            let _ = app.emit(
+                                "whatsapp://connection-state",
+                                serde_json::json!({
+                                    "accountId": acc,
+                                    "status": "connected"
+                                }),
+                            );
+                            if !existing_chats.is_empty() {
+                                let _ = app.emit(
+                                    "whatsapp://chats-updated",
+                                    serde_json::json!({
+                                        "accountId": acc,
+                                        "chats": existing_chats,
+                                    }),
+                                );
+                            }
+                        }
+                    }
+                }
+            })
+            .on_logged_out({
+                let app = app_for_logout.clone();
+                let acc = acc_for_logout.clone();
+                let storage = storage_for_logout.clone();
+                move |_| {
+                    let app = app.clone();
+                    let acc = acc.clone();
+                    let storage = storage.clone();
+                    async move {
+                        println!("[Zappo] Conta {} desconectada do WhatsApp!", acc);
+                        let mut accounts = storage.load_accounts();
+                        if let Some(target) = accounts.iter_mut().find(|a| a.id == acc) {
+                            target.status = "disconnected".to_string();
+                            target.is_active = false;
+                        }
+                        storage.save_accounts(&accounts);
+
+                        if let Some(app) = app {
+                            let _ = app.emit(
+                                "whatsapp://connection-state",
+                                serde_json::json!({
+                                    "accountId": acc,
+                                    "status": "disconnected"
+                                }),
+                            );
+                        }
+                    }
+                }
+            })
+            .on_event_for(&[EventKind::HistorySync], {
+                let app = app_for_sync.clone();
+                let acc = acc_for_sync.clone();
+                let storage = storage_for_sync.clone();
+                move |event, _client| {
+                    let app = app.clone();
+                    let acc = acc.clone();
+                    let storage = storage.clone();
+                    async move {
+                        if let Event::HistorySync(lazy) = event.as_ref() {
+                            if let Some(hs) = lazy.get() {
+                                println!("[Zappo] Recebido HistorySync: {} conversas sincronizadas", hs.conversations.len());
+                                let mut existing_chats = storage.load_chats(&acc);
+                                let mut any_updated = false;
+
+                                for conv in &hs.conversations {
+                                    let jid = conv.id.clone();
+                                    if jid.is_empty() {
+                                        continue;
+                                    }
+
+                                    let is_group = jid.ends_with("@g.us");
+                                    let chat_name = conv.name.clone().unwrap_or_else(|| {
+                                        jid.split('@').next().unwrap_or(&jid).to_string()
+                                    });
+                                    let unread_count = conv.unread_count.unwrap_or(0);
+
+                                    let mut chat_messages = storage.load_messages(&acc, &jid);
+                                    let mut last_msg_preview = None;
+                                    let mut latest_timestamp = 0i64;
+
+                                    for hmsg in &conv.messages {
+                                        if let Some(wmi) = hmsg.message.as_option() {
+                                            let key = wmi.key.as_option();
+                                            let msg_id = key.and_then(|k| k.id.clone()).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
+                                            let from_me = key.and_then(|k| k.from_me).unwrap_or(false);
+                                            let timestamp = wmi.message_timestamp.unwrap_or(0) as i64 * 1000;
+                                            if timestamp > latest_timestamp {
+                                                latest_timestamp = timestamp;
+                                            }
+
+                                            let text = wmi.message.as_option().and_then(|m| m.text_content()).map(|s| s.to_string());
+                                            let sender_name = wmi.push_name.clone();
+
+                                            let msg = Message {
+                                                id: msg_id.clone(),
+                                                chat_jid: jid.clone(),
+                                                from_me,
+                                                sender_name,
+                                                sender_jid: key.and_then(|k| k.participant.clone()),
+                                                text: text.clone(),
+                                                timestamp: if timestamp > 0 { timestamp } else { chrono::Utc::now().timestamp_millis() },
+                                                status: "read".to_string(),
+                                                media: None,
+                                                reply_to: None,
+                                            };
+
+                                            if !chat_messages.iter().any(|m| m.id == msg.id) {
+                                                chat_messages.push(msg);
+                                            }
+
+                                            if let Some(t) = text {
+                                                last_msg_preview = Some(crate::models::LastMessagePreview {
+                                                    id: msg_id,
+                                                    text: t,
+                                                    timestamp: if timestamp > 0 { timestamp } else { chrono::Utc::now().timestamp_millis() },
+                                                    from_me,
+                                                    r#type: "text".to_string(),
+                                                    status: Some("read".to_string()),
+                                                });
+                                            }
+                                        }
+                                    }
+
+                                    chat_messages.sort_by_key(|m| m.timestamp);
+                                    if !chat_messages.is_empty() {
+                                        storage.save_messages(&acc, &jid, &chat_messages);
+                                    }
+
+                                    let now = chrono::Utc::now().timestamp_millis();
+                                    let chat_ts = if latest_timestamp > 0 { latest_timestamp } else { now };
+
+                                    if let Some(existing) = existing_chats.iter_mut().find(|c| c.jid == jid) {
+                                        if existing.name == jid || existing.name.is_empty() {
+                                            existing.name = chat_name;
+                                        }
+                                        if last_msg_preview.is_some() {
+                                            existing.last_message = last_msg_preview;
+                                        }
+                                        existing.updated_at = existing.updated_at.max(chat_ts);
+                                        existing.unread_count = unread_count;
+                                    } else {
+                                        existing_chats.push(crate::models::Chat {
+                                            id: jid.clone(),
+                                            jid: jid.clone(),
+                                            name: chat_name,
+                                            phone_number: None,
+                                            avatar_url: None,
+                                            is_group,
+                                            unread_count,
+                                            pinned: false,
+                                            archived: false,
+                                            last_message: last_msg_preview,
+                                            updated_at: chat_ts,
+                                        });
+                                    any_updated = true;
+                                }
+
+                                if any_updated {
+                                    existing_chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+                                    storage.save_chats(&acc, &existing_chats);
+
+                                    if let Some(ref app) = app {
+                                        let _ = app.emit(
+                                            "whatsapp://chats-updated",
+                                            serde_json::json!({
+                                                "accountId": acc,
+                                                "chats": existing_chats,
+                                            }),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }})
+            .on_message(move |ctx| {
+                let app = app_for_msg.clone();
+                let acc = acc_for_msg.clone();
+                let storage = storage_for_msg.clone();
+                async move {
+                    let sender_jid = ctx.info.source.sender.to_string();
+                    let chat_jid = ctx.info.source.chat.to_string();
+                    let is_from_me = ctx.info.source.is_from_me;
+                    let msg_id = ctx.info.id.clone();
+                    let text = ctx.message.text_content().map(|s| s.to_string());
+
+                    // Verifica se há mídia anexada (Fotos, Figurinhas/Stickers, Vídeos, Áudio, Documentos)
+                    let mut media_att = None;
+                    let settings = storage.load_settings();
+                    use base64::Engine;
+                    let to_b64 = |opt: &Option<Vec<u8>>| opt.as_ref().map(|b| base64::engine::general_purpose::STANDARD.encode(b));
+
+                    // 1. Fotos
+                    if let Some(img) = ctx.message.image_message.as_option() {
+                        let file_size = img.file_length.unwrap_or(0);
+                        let should_download = settings.auto_download.images || file_size <= 15 * 1024 * 1024;
+                        let mut is_downloaded = false;
+                        let mut local_path = None;
+
+                        if should_download {
+                            if let Ok(bytes) = ctx.client.download(img).await {
+                                let path = storage.media_dir(&acc, "images").join(format!("{}.jpg", msg_id));
+                                if std::fs::write(&path, bytes).is_ok() {
+                                    is_downloaded = true;
+                                    local_path = Some(path.to_string_lossy().to_string());
+                                }
+                            }
+                        }
+
+                        let thumb = img.jpeg_thumbnail.as_ref().map(|b| {
+                            format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(b))
+                        });
+
+                        media_att = Some(crate::models::MediaAttachment {
+                            id: format!("media_{}", msg_id),
+                            media_type: "image".to_string(),
+                            file_name: Some("foto.jpg".to_string()),
+                            file_size,
+                            mime_type: img.mimetype.clone().unwrap_or_else(|| "image/jpeg".to_string()),
+                            thumbnail_data_url: thumb,
+                            local_path,
+                            is_downloaded,
+                            is_downloading: Some(false),
+                            download_progress: Some(if is_downloaded { 100 } else { 0 }),
+                            duration_seconds: None,
+                            direct_path: img.direct_path.clone(),
+                            media_key: to_b64(&img.media_key),
+                            file_sha256: to_b64(&img.file_sha256),
+                            file_enc_sha256: to_b64(&img.file_enc_sha256),
+                        });
+                    }
+                    // 2. Figurinhas (Stickers - sempre baixadas para renderizar direto)
+                    else if let Some(stk) = ctx.message.sticker_message.as_option() {
+                        let file_size = stk.file_length.unwrap_or(0);
+                        let mut is_downloaded = false;
+                        let mut local_path = None;
+
+                        if let Ok(bytes) = ctx.client.download(stk).await {
+                            let path = storage.media_dir(&acc, "stickers").join(format!("{}.webp", msg_id));
+                            if std::fs::write(&path, bytes).is_ok() {
+                                is_downloaded = true;
+                                local_path = Some(path.to_string_lossy().to_string());
+                            }
+                        }
+
+                        media_att = Some(crate::models::MediaAttachment {
+                            id: format!("media_{}", msg_id),
+                            media_type: "sticker".to_string(),
+                            file_name: Some("figurinha.webp".to_string()),
+                            file_size,
+                            mime_type: "image/webp".to_string(),
+                            thumbnail_data_url: None,
+                            local_path,
+                            is_downloaded,
+                            is_downloading: Some(false),
+                            download_progress: Some(if is_downloaded { 100 } else { 0 }),
+                            duration_seconds: None,
+                            direct_path: stk.direct_path.clone(),
+                            media_key: to_b64(&stk.media_key),
+                            file_sha256: to_b64(&stk.file_sha256),
+                            file_enc_sha256: to_b64(&stk.file_enc_sha256),
+                        });
+                    }
+                    // 3. Vídeos
+                    else if let Some(vid) = ctx.message.video_message.as_option() {
+                        let file_size = vid.file_length.unwrap_or(0);
+                        let should_download = settings.auto_download.videos;
+                        let mut is_downloaded = false;
+                        let mut local_path = None;
+
+                        if should_download {
+                            if let Ok(bytes) = ctx.client.download(vid).await {
+                                let path = storage.media_dir(&acc, "videos").join(format!("{}.mp4", msg_id));
+                                if std::fs::write(&path, bytes).is_ok() {
+                                    is_downloaded = true;
+                                    local_path = Some(path.to_string_lossy().to_string());
+                                }
+                            }
+                        }
+
+                        let thumb = vid.jpeg_thumbnail.as_ref().map(|b| {
+                            format!("data:image/jpeg;base64,{}", base64::engine::general_purpose::STANDARD.encode(b))
+                        });
+
+                        media_att = Some(crate::models::MediaAttachment {
+                            id: format!("media_{}", msg_id),
+                            media_type: "video".to_string(),
+                            file_name: Some("video.mp4".to_string()),
+                            file_size,
+                            mime_type: vid.mimetype.clone().unwrap_or_else(|| "video/mp4".to_string()),
+                            thumbnail_data_url: thumb,
+                            local_path,
+                            is_downloaded,
+                            is_downloading: Some(false),
+                            download_progress: Some(if is_downloaded { 100 } else { 0 }),
+                            duration_seconds: vid.seconds,
+                            direct_path: vid.direct_path.clone(),
+                            media_key: to_b64(&vid.media_key),
+                            file_sha256: to_b64(&vid.file_sha256),
+                            file_enc_sha256: to_b64(&vid.file_enc_sha256),
+                        });
+                    }
+                    // 4. Áudio / Mensagem de Voz
+                    else if let Some(aud) = ctx.message.audio_message.as_option() {
+                        let file_size = aud.file_length.unwrap_or(0);
+                        let should_download = settings.auto_download.audio;
+                        let mut is_downloaded = false;
+                        let mut local_path = None;
+
+                        if should_download {
+                            if let Ok(bytes) = ctx.client.download(aud).await {
+                                let path = storage.media_dir(&acc, "audio").join(format!("{}.ogg", msg_id));
+                                if std::fs::write(&path, bytes).is_ok() {
+                                    is_downloaded = true;
+                                    local_path = Some(path.to_string_lossy().to_string());
+                                }
+                            }
+                        }
+
+                        let is_ptt = aud.ptt.unwrap_or(false);
+                        media_att = Some(crate::models::MediaAttachment {
+                            id: format!("media_{}", msg_id),
+                            media_type: if is_ptt { "voice".to_string() } else { "audio".to_string() },
+                            file_name: Some(if is_ptt { "voz.ogg".to_string() } else { "audio.ogg".to_string() }),
+                            file_size,
+                            mime_type: aud.mimetype.clone().unwrap_or_else(|| "audio/ogg".to_string()),
+                            thumbnail_data_url: None,
+                            local_path,
+                            is_downloaded,
+                            is_downloading: Some(false),
+                            download_progress: Some(if is_downloaded { 100 } else { 0 }),
+                            duration_seconds: aud.seconds,
+                            direct_path: aud.direct_path.clone(),
+                            media_key: to_b64(&aud.media_key),
+                            file_sha256: to_b64(&aud.file_sha256),
+                            file_enc_sha256: to_b64(&aud.file_enc_sha256),
+                        });
+                    }
+                    // 5. Documentos
+                    else if let Some(doc) = ctx.message.document_message.as_option() {
+                        let file_size = doc.file_length.unwrap_or(0);
+                        let file_name = doc.file_name.clone().unwrap_or_else(|| "documento.pdf".to_string());
+                        let should_download = settings.auto_download.documents;
+                        let mut is_downloaded = false;
+                        let mut local_path = None;
+
+                        if should_download {
+                            if let Ok(bytes) = ctx.client.download(doc).await {
+                                let path = storage.media_dir(&acc, "documents").join(format!("{}_{}", msg_id, file_name));
+                                if std::fs::write(&path, bytes).is_ok() {
+                                    is_downloaded = true;
+                                    local_path = Some(path.to_string_lossy().to_string());
+                                }
+                            }
+                        }
+
+                        media_att = Some(crate::models::MediaAttachment {
+                            id: format!("media_{}", msg_id),
+                            media_type: "document".to_string(),
+                            file_name: Some(file_name),
+                            file_size,
+                            mime_type: doc.mimetype.clone().unwrap_or_else(|| "application/pdf".to_string()),
+                            thumbnail_data_url: None,
+                            local_path,
+                            is_downloaded,
+                            is_downloading: Some(false),
+                            download_progress: Some(if is_downloaded { 100 } else { 0 }),
+                            duration_seconds: None,
+                            direct_path: doc.direct_path.clone(),
+                            media_key: to_b64(&doc.media_key),
+                            file_sha256: to_b64(&doc.file_sha256),
+                            file_enc_sha256: to_b64(&doc.file_enc_sha256),
+                        });
+                    }
+
+                    let now = chrono::Utc::now().timestamp_millis();
+                    let message = Message {
+                        id: msg_id.clone(),
+                        chat_jid: chat_jid.clone(),
+                        from_me: is_from_me,
+                        sender_name: Some(ctx.info.push_name.clone()),
+                        sender_jid: Some(sender_jid),
+                        text: text.clone(),
+                        timestamp: now,
+                        status: "read".to_string(),
+                        media: media_att.clone(),
+                        reply_to: None,
+                    };
+
+                    // 1. Salva a mensagem localmente com deduplicação
+                    let mut msgs = storage.load_messages(&acc, &chat_jid);
+                    let already_exists = msgs.iter().any(|m| {
+                        m.id == message.id
+                            || (m.from_me
+                                && is_from_me
+                                && m.text == message.text
+                                && (m.timestamp - now).abs() < 5000)
+                    });
+
+                    if !already_exists {
+                        msgs.push(message.clone());
+                        msgs.sort_by_key(|m| m.timestamp);
+                        storage.save_messages(&acc, &chat_jid, &msgs);
+                    }
+
+                    // 2. Atualiza ou adiciona a conversa
+                    let mut chats = storage.load_chats(&acc);
+                    let preview = crate::models::LastMessagePreview {
+                        id: msg_id,
+                        text: text.unwrap_or_else(|| if media_att.is_some() { "[Foto]".to_string() } else { "".to_string() }),
+                        timestamp: now,
+                        from_me: is_from_me,
+                        r#type: if media_att.is_some() { "media".to_string() } else { "text".to_string() },
+                        status: Some("read".to_string()),
+                    };
+
+                    let is_group = chat_jid.ends_with("@g.us");
+                    let chat_title = if !ctx.info.push_name.is_empty() {
+                        ctx.info.push_name.clone()
+                    } else {
+                        chat_jid.split('@').next().unwrap_or(&chat_jid).to_string()
+                    };
+
+                    if let Some(existing) = chats.iter_mut().find(|c| c.jid == chat_jid) {
+                        existing.last_message = Some(preview);
+                        existing.updated_at = now;
+                        if !is_from_me {
+                            existing.unread_count += 1;
+                        }
+                    } else {
+                        chats.push(crate::models::Chat {
+                            id: chat_jid.clone(),
+                            jid: chat_jid.clone(),
+                            name: chat_title,
+                            phone_number: None,
+                            avatar_url: None,
+                            is_group,
+                            unread_count: if is_from_me { 0 } else { 1 },
+                            pinned: false,
+                            archived: false,
+                            last_message: Some(preview),
+                            updated_at: now,
+                        });
+                    }
+
+                    chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+                    storage.save_chats(&acc, &chats);
+
+                    // 3. Emite eventos para a interface (apenas se for mensagem nova não duplicada)
+                    if let Some(app) = app {
+                        if !already_exists {
+                            let _ = app.emit(
+                                "whatsapp://new-message",
+                                serde_json::json!({
+                                    "accountId": acc,
+                                    "message": message
+                                }),
+                            );
+                        }
+                        let _ = app.emit(
+                            "whatsapp://chats-updated",
+                            serde_json::json!({
+                                "accountId": acc,
+                                "chats": chats
+                            }),
+                        );
+                    }
+                }
+            })
+            .build()
+            .await;
+
+        match bot_result {
+            Ok(bot) => {
+                let client = bot.client();
+                let handle = bot.spawn();
+
+                let mut client_guard = self.active_client.lock().await;
+                *client_guard = Some(client);
+
+                let mut handle_guard = self.active_bot_handle.lock().await;
+                *handle_guard = Some(handle);
+            }
+            Err(e) => {
+                eprintln!("[Zappo] Erro ao construir bot whatsapp-rust: {:?}", e);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn send_message(
+        &self,
+        account_id: &str,
+        chat_jid: &str,
+        text: &str,
+        _reply_to_id: Option<String>,
+    ) -> Result<Message, String> {
+        let mut real_msg_id = None;
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid.parse::<Jid>() {
+                    if let Ok(res) = client.send_text(&jid, text).await {
+                        real_msg_id = Some(res.message_id);
+                    }
+                }
+            }
+        }
+
+        let now = chrono::Utc::now().timestamp_millis();
+        let msg_id = real_msg_id.unwrap_or_else(|| format!("msg_{}_{}", now, uuid::Uuid::new_v4().simple()));
+
+        let message = Message {
+            id: msg_id.clone(),
+            chat_jid: chat_jid.to_string(),
+            from_me: true,
+            sender_name: Some("Você".to_string()),
+            sender_jid: None,
+            text: Some(text.to_string()),
+            timestamp: now,
+            status: "delivered".to_string(),
+            media: None,
+            reply_to: None,
+        };
+
+        // Salva na lista de mensagens locais
+        let mut msgs = self.storage.load_messages(account_id, chat_jid);
+        if !msgs.iter().any(|m| m.id == message.id) {
+            msgs.push(message.clone());
+            self.storage.save_messages(account_id, chat_jid, &msgs);
+        }
+
+        // Atualiza chat
+        let mut chats = self.storage.load_chats(account_id);
+        if let Some(chat) = chats.iter_mut().find(|c| c.jid == chat_jid) {
+            chat.last_message = Some(crate::models::LastMessagePreview {
+                id: msg_id,
+                text: text.to_string(),
+                timestamp: now,
+                from_me: true,
+                r#type: "text".to_string(),
+                status: Some("delivered".to_string()),
+            });
+            chat.updated_at = now;
+            chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            self.storage.save_chats(account_id, &chats);
+        }
+
+        // Emite atualização do preview da conversa (o retorno da função já entrega a mensagem para a UI)
+        if let Some(app) = self.app_handle.lock().await.as_ref() {
+            let _ = app.emit(
+                "whatsapp://chats-updated",
+                serde_json::json!({
+                    "accountId": account_id,
+                    "chats": chats
+                }),
+            );
+        }
+
+        Ok(message)
+    }
+
+    pub async fn send_media(
+        &self,
+        account_id: &str,
+        chat_jid: &str,
+        media_type: &str,
+        file_name: &str,
+        file_data_base64: &str,
+        caption: Option<String>,
+    ) -> Result<Message, String> {
+        use base64::Engine;
+        let clean_b64 = if let Some(idx) = file_data_base64.find(',') {
+            &file_data_base64[idx + 1..]
+        } else {
+            file_data_base64
+        };
+
+        let bytes = base64::engine::general_purpose::STANDARD
+            .decode(clean_b64)
+            .map_err(|e| format!("Falha ao decodificar base64: {:?}", e))?;
+
+        let now = chrono::Utc::now().timestamp_millis();
+        let uuid_str = uuid::Uuid::new_v4().simple().to_string();
+        let msg_id = format!("media_{}_{}", now, &uuid_str[..8]);
+
+        let sub_folder = match media_type {
+            "image" => "images",
+            "video" => "videos",
+            "audio" | "voice" => "audio",
+            "sticker" => "stickers",
+            _ => "documents",
+        };
+
+        let ext = file_name.split('.').last().unwrap_or(if media_type == "image" { "jpg" } else { "bin" });
+        let dest = self.storage.media_dir(account_id, sub_folder).join(format!("{}.{}", msg_id, ext));
+        let _ = std::fs::write(&dest, &bytes);
+        let dest_str = dest.to_string_lossy().to_string();
+
+        let (wa_media_type, mime_type_str) = match media_type {
+            "image" => (MediaType::Image, "image/jpeg"),
+            "video" => (MediaType::Video, "video/mp4"),
+            "audio" | "voice" => (MediaType::Audio, "audio/ogg"),
+            "sticker" => (MediaType::Sticker, "image/webp"),
+            _ => (MediaType::Document, "application/octet-stream"),
+        };
+
+        let mut real_msg_id = None;
+        let mut upload_meta = None;
+
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid.parse::<Jid>() {
+                    match client.upload(bytes.clone(), wa_media_type, Default::default()).await {
+                        Ok(upload) => {
+                            upload_meta = Some((
+                                upload.direct_path.clone(),
+                                base64::engine::general_purpose::STANDARD.encode(&upload.media_key),
+                                base64::engine::general_purpose::STANDARD.encode(&upload.file_sha256),
+                                base64::engine::general_purpose::STANDARD.encode(&upload.file_enc_sha256),
+                            ));
+
+                            let wa_msg = match media_type {
+                                "image" => whatsapp_rust::media::image_message(
+                                    upload,
+                                    whatsapp_rust::media::ImageOptions {
+                                        caption: caption.clone(),
+                                        mimetype: Some(mime_type_str.to_string()),
+                                        ..Default::default()
+                                    },
+                                ),
+                                "video" => whatsapp_rust::media::video_message(
+                                    upload,
+                                    whatsapp_rust::media::VideoOptions {
+                                        caption: caption.clone(),
+                                        mimetype: Some(mime_type_str.to_string()),
+                                        ..Default::default()
+                                    },
+                                ),
+                                "audio" | "voice" => whatsapp_rust::media::audio_message(
+                                    upload,
+                                    whatsapp_rust::media::AudioOptions {
+                                        mimetype: Some(mime_type_str.to_string()),
+                                        ptt: Some(media_type == "voice"),
+                                        ..Default::default()
+                                    },
+                                ),
+                                "sticker" => wa::Message {
+                                    sticker_message: MessageField::some(wa::message::StickerMessage {
+                                        url: Some(upload.url),
+                                        direct_path: Some(upload.direct_path),
+                                        media_key: Some(upload.media_key.to_vec()),
+                                        file_sha256: Some(upload.file_sha256.to_vec()),
+                                        file_enc_sha256: Some(upload.file_enc_sha256.to_vec()),
+                                        file_length: Some(upload.file_length),
+                                        media_key_timestamp: Some(upload.media_key_timestamp),
+                                        mimetype: Some("image/webp".to_string()),
+                                        height: Some(512),
+                                        width: Some(512),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                },
+                                _ => whatsapp_rust::media::document_message(
+                                    upload,
+                                    whatsapp_rust::media::DocumentOptions {
+                                        file_name: Some(file_name.to_string()),
+                                        caption: caption.clone(),
+                                        mimetype: Some(mime_type_str.to_string()),
+                                        ..Default::default()
+                                    },
+                                ),
+                            };
+
+                            match client.send_message(&jid, wa_msg).await {
+                                Ok(res) => {
+                                    real_msg_id = Some(res.message_id);
+                                }
+                                Err(e) => {
+                                    eprintln!("[send_media] Falha ao enviar mensagem de mídia: {:?}", e);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("[send_media] Falha ao fazer upload de mídia: {:?}", e);
+                        }
+                    }
+                }
+            }
+        }
+
+        let final_id = real_msg_id.unwrap_or(msg_id);
+        let (direct_path, media_key, file_sha256, file_enc_sha256) = match upload_meta {
+            Some((dp, mk, fs, fe)) => (Some(dp), Some(mk), Some(fs), Some(fe)),
+            None => (None, None, None, None),
+        };
+
+        let media_att = crate::models::MediaAttachment {
+            id: format!("att_{}", final_id),
+            media_type: media_type.to_string(),
+            file_name: Some(file_name.to_string()),
+            file_size: bytes.len() as u64,
+            mime_type: mime_type_str.to_string(),
+            thumbnail_data_url: None,
+            local_path: Some(dest_str),
+            is_downloaded: true,
+            is_downloading: Some(false),
+            download_progress: Some(100),
+            duration_seconds: None,
+            direct_path,
+            media_key,
+            file_sha256,
+            file_enc_sha256,
+        };
+
+        let message = Message {
+            id: final_id.clone(),
+            chat_jid: chat_jid.to_string(),
+            from_me: true,
+            sender_name: Some("Você".to_string()),
+            sender_jid: None,
+            text: caption,
+            timestamp: now,
+            status: "delivered".to_string(),
+            media: Some(media_att),
+            reply_to: None,
+        };
+
+        let mut msgs = self.storage.load_messages(account_id, chat_jid);
+        if !msgs.iter().any(|m| m.id == message.id) {
+            msgs.push(message.clone());
+            self.storage.save_messages(account_id, chat_jid, &msgs);
+        }
+
+        let mut chats = self.storage.load_chats(account_id);
+        if let Some(chat) = chats.iter_mut().find(|c| c.jid == chat_jid) {
+            let label = match media_type {
+                "image" => "Foto",
+                "video" => "Vídeo",
+                "audio" | "voice" => "Áudio",
+                "sticker" => "Figurinha",
+                _ => "Documento",
+            };
+            chat.last_message = Some(crate::models::LastMessagePreview {
+                id: final_id,
+                text: format!("[{}] {}", label, file_name),
+                timestamp: now,
+                from_me: true,
+                r#type: media_type.to_string(),
+                status: Some("delivered".to_string()),
+            });
+            chat.updated_at = now;
+            chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+            self.storage.save_chats(account_id, &chats);
+        }
+
+        if let Some(app) = self.app_handle.lock().await.as_ref() {
+            let _ = app.emit(
+                "whatsapp://chats-updated",
+                serde_json::json!({
+                    "accountId": account_id,
+                    "chats": chats
+                }),
+            );
+        }
+
+        Ok(message)
+    }
+
+    pub async fn download_media(&self, account_id: &str, message_id: &str) -> Result<String, String> {
+        let data_dir = self.storage.base_dir.join("data");
+        if let Ok(entries) = std::fs::read_dir(&data_dir) {
+            for entry in entries.flatten() {
+                let file_name = entry.file_name().to_string_lossy().to_string();
+                if file_name.starts_with(&format!("msgs_{}_", account_id)) && file_name.ends_with(".json") {
+                    if let Ok(content) = std::fs::read_to_string(entry.path()) {
+                        if let Ok(mut msgs) = serde_json::from_str::<Vec<Message>>(&content) {
+                            if let Some(target) = msgs.iter_mut().find(|m| m.id == message_id) {
+                                if let Some(ref mut att) = target.media {
+                                    let sub_folder = match att.media_type.as_str() {
+                                        "image" => "images",
+                                        "video" => "videos",
+                                        "audio" | "voice" => "audio",
+                                        "sticker" => "stickers",
+                                        _ => "documents",
+                                    };
+                                    let ext = match att.media_type.as_str() {
+                                        "image" => "jpg",
+                                        "video" => "mp4",
+                                        "audio" | "voice" => "ogg",
+                                        "sticker" => "webp",
+                                        _ => "pdf",
+                                    };
+                                    let dest = self.storage.media_dir(account_id, sub_folder).join(format!("{}.{}", message_id, ext));
+
+                                    // Se o arquivo já existe mas tinha tamanho corrupto (<= 1024 bytes), remove para baixar real
+                                    if let Ok(meta) = std::fs::metadata(&dest) {
+                                        if meta.len() <= 1024 {
+                                            let _ = std::fs::remove_file(&dest);
+                                        }
+                                    }
+
+                                    // Baixa do WhatsApp CDN caso ainda não esteja no disco
+                                    if !dest.exists() {
+                                        use base64::Engine;
+                                        if let (Some(dp), Some(mk_b64), Some(fs_b64), Some(fe_b64)) = (
+                                            &att.direct_path,
+                                            &att.media_key,
+                                            &att.file_sha256,
+                                            &att.file_enc_sha256,
+                                        ) {
+                                            if let (Ok(mk), Ok(fs), Ok(fe)) = (
+                                                base64::engine::general_purpose::STANDARD.decode(mk_b64),
+                                                base64::engine::general_purpose::STANDARD.decode(fs_b64),
+                                                base64::engine::general_purpose::STANDARD.decode(fe_b64),
+                                            ) {
+                                                let wa_media_type = match att.media_type.as_str() {
+                                                    "image" => MediaType::Image,
+                                                    "video" => MediaType::Video,
+                                                    "audio" | "voice" => MediaType::Audio,
+                                                    "sticker" => MediaType::Sticker,
+                                                    _ => MediaType::Document,
+                                                };
+                                                let params = whatsapp_rust::download::DownloadParams::encrypted(
+                                                    dp,
+                                                    &mk,
+                                                    &fs,
+                                                    &fe,
+                                                    att.file_size,
+                                                    wa_media_type,
+                                                );
+                                                let client_opt = self.active_client.lock().await.clone();
+                                                if let Some(client) = client_opt {
+                                                    if client.is_connected() {
+                                                        match client.download(&params).await {
+                                                            Ok(bytes) => {
+                                                                if let Err(e) = std::fs::write(&dest, bytes) {
+                                                                    return Err(format!("Falha ao salvar mídia em disco: {:?}", e));
+                                                                }
+                                                            }
+                                                            Err(e) => {
+                                                                return Err(format!("Falha ao baixar mídia do WhatsApp: {:?}", e));
+                                                            }
+                                                        }
+                                                    } else {
+                                                        return Err("WhatsApp não está conectado para baixar a mídia.".to_string());
+                                                    }
+                                                } else {
+                                                    return Err("Nenhuma sessão ativa para baixar a mídia.".to_string());
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if !dest.exists() {
+                                        return Err("Não foi possível obter o arquivo de mídia.".to_string());
+                                    }
+
+                                    let dest_str = dest.to_string_lossy().to_string();
+                                    att.is_downloaded = true;
+                                    att.local_path = Some(dest_str.clone());
+                                    att.is_downloading = Some(false);
+                                    att.download_progress = Some(100);
+
+                                    if let Ok(json) = serde_json::to_string_pretty(&msgs) {
+                                        let _ = std::fs::write(entry.path(), json);
+                                    }
+                                    return Ok(dest_str);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Err("Mensagem com anexo não encontrada.".to_string())
+    }
+
+    pub async fn clear_chat_messages(&self, account_id: &str, chat_jid: &str) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid.parse::<Jid>() {
+                    let _ = client.chat_actions().clear_chat(&jid, false, false, None).await;
+                }
+            }
+        }
+        self.storage.clear_chat_messages(account_id, chat_jid);
+        Ok(())
+    }
+
+    pub async fn delete_chat(&self, account_id: &str, chat_jid: &str) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid.parse::<Jid>() {
+                    let _ = client.chat_actions().delete_chat(&jid, false, None).await;
+                }
+            }
+        }
+        self.storage.delete_chat(account_id, chat_jid);
+        Ok(())
+    }
+
+    pub async fn start_chat(
+        &self,
+        account_id: &str,
+        phone_number: &str,
+        name: Option<&str>,
+    ) -> Result<crate::models::Chat, String> {
+        let clean_digits: String = phone_number.chars().filter(|c| c.is_ascii_digit()).collect();
+        if clean_digits.is_empty() {
+            return Err("Número de telefone inválido".to_string());
+        }
+
+        let chat_jid = format!("{}@s.whatsapp.net", clean_digits);
+        let mut chats = self.storage.load_chats(account_id);
+
+        if let Some(existing) = chats.iter().find(|c| c.jid == chat_jid) {
+            return Ok(existing.clone());
+        }
+
+        let now = chrono::Utc::now().timestamp_millis();
+        let display_name = match name {
+            Some(n) if !n.trim().is_empty() => n.trim().to_string(),
+            _ => format!("+{}", clean_digits),
+        };
+
+        let new_chat = crate::models::Chat {
+            id: chat_jid.clone(),
+            jid: chat_jid.clone(),
+            name: display_name,
+            phone_number: Some(clean_digits),
+            avatar_url: None,
+            is_group: false,
+            unread_count: 0,
+            pinned: false,
+            archived: false,
+            last_message: None,
+            updated_at: now,
+        };
+
+        chats.insert(0, new_chat.clone());
+        self.storage.save_chats(account_id, &chats);
+
+        if let Some(app) = self.app_handle.lock().await.as_ref() {
+            let _ = app.emit(
+                "whatsapp://chats-updated",
+                serde_json::json!({
+                    "accountId": account_id,
+                    "chats": chats
+                }),
+            );
+        }
+
+        Ok(new_chat)
+    }
+
+    pub async fn disconnect_active(&self) -> Result<(), String> {
+        let mut handle_guard = self.active_bot_handle.lock().await;
+        if let Some(handle) = handle_guard.take() {
+            handle.shutdown().await;
+        }
+        let mut client_guard = self.active_client.lock().await;
+        *client_guard = None;
+
+        let mut accounts = self.storage.load_accounts();
+        for acc in &mut accounts {
+            if acc.is_active {
+                acc.status = "disconnected".to_string();
+                acc.is_active = false;
+            }
+        }
+        self.storage.save_accounts(&accounts);
+
+        Ok(())
+    }
+}

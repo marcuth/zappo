@@ -1,64 +1,54 @@
-import { invoke } from "@tauri-apps/api/core"
 import { useState } from "react"
 
-import reactLogo from "./assets/react.svg"
+import {
+    AccountProvider,
+    useAccount,
+} from "./components/providers/account-provider"
+import { ThemeProvider } from "./components/providers/theme-provider"
+import { AccountsModal } from "./components/modals/accounts-modal"
+import { SettingsModal } from "./components/modals/settings-modal"
+import { StorageModal } from "./components/modals/storage-modal"
+import { EmptyChat } from "./components/chat/empty-chat"
+import { ChatView } from "./components/chat/chat-view"
+import { Sidebar } from "./components/layout/sidebar"
+import { Toaster } from "./components/ui/sonner"
 import "./App.css"
 
-function App() {
-    const [greetMsg, setGreetMsg] = useState("")
-    const [name, setName] = useState("")
+function MainApp() {
+    const { activeChat } = useAccount()
 
-    async function greet() {
-        // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-        setGreetMsg(await invoke("greet", { name }))
-    }
+    const [accountsOpen, setAccountsOpen] = useState(false)
+    const [storageOpen, setStorageOpen] = useState(false)
+    const [settingsOpen, setSettingsOpen] = useState(false)
 
     return (
-        <main className="container">
-            <h1>Welcome to Tauri + React</h1>
+        <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
+            {/* Sidebar with accounts & chats */}
+            <Sidebar
+                onOpenAccounts={() => setAccountsOpen(true)}
+                onOpenStorage={() => setStorageOpen(true)}
+                onOpenSettings={() => setSettingsOpen(true)}
+            />
 
-            <div className="row">
-                <a href="https://vite.dev" target="_blank">
-                    <img
-                        src="/vite.svg"
-                        className="logo vite"
-                        alt="Vite logo"
-                    />
-                </a>
-                <a href="https://tauri.app" target="_blank">
-                    <img
-                        src="/tauri.svg"
-                        className="logo tauri"
-                        alt="Tauri logo"
-                    />
-                </a>
-                <a href="https://react.dev" target="_blank">
-                    <img
-                        src={reactLogo}
-                        className="logo react"
-                        alt="React logo"
-                    />
-                </a>
-            </div>
-            <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+            {/* Main Area: Active Chat or Welcome State */}
+            {activeChat ? <ChatView /> : <EmptyChat />}
 
-            <form
-                className="row"
-                onSubmit={(e) => {
-                    e.preventDefault()
-                    greet()
-                }}
-            >
-                <input
-                    id="greet-input"
-                    onChange={(e) => setName(e.currentTarget.value)}
-                    placeholder="Enter a name..."
-                />
-                <button type="submit">Greet</button>
-            </form>
-            <p>{greetMsg}</p>
-        </main>
+            {/* Modals */}
+            <AccountsModal open={accountsOpen} onOpenChange={setAccountsOpen} />
+            <StorageModal open={storageOpen} onOpenChange={setStorageOpen} />
+            <SettingsModal open={settingsOpen} onOpenChange={setSettingsOpen} />
+
+            <Toaster position="top-right" richColors />
+        </div>
     )
 }
 
-export default App
+export default function App() {
+    return (
+        <ThemeProvider defaultTheme="dark">
+            <AccountProvider>
+                <MainApp />
+            </AccountProvider>
+        </ThemeProvider>
+    )
+}
