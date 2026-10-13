@@ -712,7 +712,7 @@ impl SessionManager {
                             media_key: to_b64(&aud.media_key),
                             file_sha256: to_b64(&aud.file_sha256),
                             file_enc_sha256: to_b64(&aud.file_enc_sha256),
-                            is_view_once: None,
+                            is_view_once: aud.view_once,
                         });
                     }
                     // 5. Documentos
@@ -1269,7 +1269,7 @@ impl SessionManager {
                                         None
                                     };
 
-                                    whatsapp_rust::media::audio_message(
+                                    let mut msg = whatsapp_rust::media::audio_message(
                                         upload,
                                         whatsapp_rust::media::AudioOptions {
                                             mimetype: Some(mime_type_str.to_string()),
@@ -1278,7 +1278,12 @@ impl SessionManager {
                                             waveform,
                                             ..Default::default()
                                         },
-                                    )
+                                    );
+                                    if is_view_once.unwrap_or(false) {
+                                        msg.audio_message.get_or_insert_default().view_once =
+                                            is_view_once;
+                                    }
+                                    msg
                                 }
                                 "sticker" => wa::Message {
                                     sticker_message: MessageField::some(

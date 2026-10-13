@@ -126,6 +126,7 @@ export function ChatView() {
 
     // Voice recording state
     const [isRecording, setIsRecording] = useState(false)
+    const [isRecordingViewOnce, setIsRecordingViewOnce] = useState(false)
     const [recordingDuration, setRecordingDuration] = useState(0)
     const [isProcessingAudio, setIsProcessingAudio] = useState(false)
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -264,6 +265,7 @@ export function ChatView() {
             recorder.start(100)
             mediaRecorderRef.current = recorder
             setIsRecording(true)
+            setIsRecordingViewOnce(false)
             setRecordingDuration(0)
 
             if (recordingTimerRef.current)
@@ -295,6 +297,7 @@ export function ChatView() {
         }
         audioChunksRef.current = []
         setIsRecording(false)
+        setIsRecordingViewOnce(false)
         setRecordingDuration(0)
     }
 
@@ -307,6 +310,7 @@ export function ChatView() {
         }
 
         const recorder = mediaRecorderRef.current
+        const viewOnceEnabled = isRecordingViewOnce
         setIsProcessingAudio(true)
 
         recorder.onstop = async () => {
@@ -341,13 +345,23 @@ export function ChatView() {
                     { type: recorder.mimeType || "audio/ogg" },
                 )
 
-                await sendMedia(audioFile, undefined, "voice")
-                toast.success("Mensagem de voz enviada!")
+                await sendMedia(
+                    audioFile,
+                    undefined,
+                    "voice",
+                    viewOnceEnabled ? true : undefined,
+                )
+                toast.success(
+                    viewOnceEnabled
+                        ? "Mensagem de voz temporária enviada (1 visualização)!"
+                        : "Mensagem de voz enviada!",
+                )
             } catch (err) {
                 console.error("Erro ao processar áudio gravado:", err)
                 toast.error("Falha ao enviar mensagem de voz.")
             } finally {
                 setIsRecording(false)
+                setIsRecordingViewOnce(false)
                 setIsProcessingAudio(false)
                 setRecordingDuration(0)
                 mediaRecorderRef.current = null
@@ -1115,6 +1129,27 @@ export function ChatView() {
                             </div>
 
                             <div className="flex items-center gap-1.5">
+                                {/* Botão de Áudio de Visualização Única (①) */}
+                                <button
+                                    type="button"
+                                    onClick={() =>
+                                        setIsRecordingViewOnce((prev) => !prev)
+                                    }
+                                    disabled={isProcessingAudio}
+                                    title={
+                                        isRecordingViewOnce
+                                            ? "Visualização única ativada (destinatário só escuta 1 vez)"
+                                            : "Clique para enviar como áudio temporário de reprodução única"
+                                    }
+                                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs transition-all cursor-pointer shrink-0 border ${
+                                        isRecordingViewOnce
+                                            ? "bg-amber-500 text-black border-amber-400 scale-105 shadow-md shadow-amber-500/20"
+                                            : "bg-background/80 text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40"
+                                    }`}
+                                >
+                                    ①
+                                </button>
+
                                 <Button
                                     variant="ghost"
                                     size="sm"
