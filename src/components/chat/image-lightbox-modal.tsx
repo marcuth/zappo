@@ -1,4 +1,6 @@
 import {
+    LuChevronLeft,
+    LuChevronRight,
     LuDownload,
     LuRotateCcw,
     LuRotateCw,
@@ -22,6 +24,10 @@ interface ImageLightboxModalProps {
     fileSize?: number
     onClose: () => void
     onConvertToSticker?: () => void
+    onPrev?: () => void
+    onNext?: () => void
+    hasPrev?: boolean
+    hasNext?: boolean
 }
 
 export function ImageLightboxModal({
@@ -32,6 +38,10 @@ export function ImageLightboxModal({
     fileSize,
     onClose,
     onConvertToSticker,
+    onPrev,
+    onNext,
+    hasPrev = false,
+    hasNext = false,
 }: ImageLightboxModalProps) {
     const [scale, setScale] = useState(1)
     const [rotation, setRotation] = useState(0)
@@ -124,11 +134,23 @@ export function ImageLightboxModal({
             if (e.key === "+" || e.key === "=") handleZoomIn()
             if (e.key === "-") handleZoomOut()
             if (e.key === "0") handleReset()
+            if (e.key === "ArrowLeft" && hasPrev && onPrev) onPrev()
+            if (e.key === "ArrowRight" && hasNext && onNext) onNext()
         }
 
         window.addEventListener("keydown", handleKeyDown)
         return () => window.removeEventListener("keydown", handleKeyDown)
-    }, [isOpen, handleClose, handleZoomIn, handleZoomOut, handleReset])
+    }, [
+        isOpen,
+        handleClose,
+        handleZoomIn,
+        handleZoomOut,
+        handleReset,
+        hasPrev,
+        hasNext,
+        onPrev,
+        onNext,
+    ])
 
     if (!isOpen || !imageUrl) return null
 
@@ -246,6 +268,36 @@ export function ImageLightboxModal({
 
             {/* Central Canvas */}
             <div className="flex-1 flex items-center justify-center overflow-hidden p-4 relative">
+                {/* Previous Media Button */}
+                {hasPrev && onPrev && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onPrev()
+                        }}
+                        className="absolute left-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/20 flex items-center justify-center backdrop-blur transition-all hover:scale-110 active:scale-95 shadow-xl cursor-pointer"
+                        title="Mídia anterior (Seta esquerda)"
+                    >
+                        <LuChevronLeft className="w-6 h-6" />
+                    </button>
+                )}
+
+                {/* Next Media Button */}
+                {hasNext && onNext && (
+                    <button
+                        type="button"
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            onNext()
+                        }}
+                        className="absolute right-6 top-1/2 -translate-y-1/2 z-20 w-11 h-11 rounded-full bg-black/60 hover:bg-black/85 text-white/90 hover:text-white border border-white/20 flex items-center justify-center backdrop-blur transition-all hover:scale-110 active:scale-95 shadow-xl cursor-pointer"
+                        title="Próxima mídia (Seta direita)"
+                    >
+                        <LuChevronRight className="w-6 h-6" />
+                    </button>
+                )}
+
                 <div
                     className="transition-transform duration-150 ease-out flex items-center justify-center max-w-full max-h-full cursor-grab active:cursor-grabbing"
                     style={{

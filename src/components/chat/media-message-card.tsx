@@ -14,6 +14,7 @@ import { convertFileSrc } from "@tauri-apps/api/core"
 import { useState } from "react"
 
 import { ImageLightboxModal } from "./image-lightbox-modal"
+import { AudioPlayerCard } from "./audio-player-card"
 import { PdfViewerModal } from "./pdf-viewer-modal"
 import { MediaAttachment } from "../../types"
 import { Spinner } from "../ui/spinner"
@@ -24,12 +25,14 @@ interface MediaMessageCardProps {
     media: MediaAttachment
     onDownload: () => void
     onConvertToSticker?: () => void
+    onOpenMediaViewer?: () => void
 }
 
 export function MediaMessageCard({
     media,
     onDownload,
     onConvertToSticker,
+    onOpenMediaViewer,
 }: MediaMessageCardProps) {
     const [failedSrc, setFailedSrc] = useState<string | null>(null)
     const [isLightboxOpen, setIsLightboxOpen] = useState(false)
@@ -120,7 +123,13 @@ export function MediaMessageCard({
             return (
                 <>
                     <div
-                        onClick={() => setIsLightboxOpen(true)}
+                        onClick={() => {
+                            if (onOpenMediaViewer) {
+                                onOpenMediaViewer()
+                            } else {
+                                setIsLightboxOpen(true)
+                            }
+                        }}
                         className="mt-1.5 rounded-2xl overflow-hidden border border-border/60 bg-black/30 shadow-md max-w-sm cursor-pointer group hover:border-primary/50 transition-colors"
                         title="Clique para expandir em tela cheia com zoom"
                     >
@@ -200,22 +209,11 @@ export function MediaMessageCard({
 
         if (isAudio) {
             return (
-                <div className="mt-1.5 p-3 rounded-2xl border border-border/60 bg-card/90 shadow-sm max-w-xs space-y-2">
-                    <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-emerald-500/20 text-emerald-500 flex items-center justify-center">
-                            <LuMic className="w-3.5 h-3.5" />
-                        </div>
-                        <span className="text-xs font-semibold text-foreground">
-                            {media.mediaType === "voice"
-                                ? "Mensagem de Voz"
-                                : "Áudio"}
-                        </span>
-                        <span className="text-[10px] text-muted-foreground ml-auto font-mono">
-                            {formatBytes(media.fileSize)}
-                        </span>
-                    </div>
-                    <audio src={mediaSrc} controls className="w-full h-8" />
-                </div>
+                <AudioPlayerCard
+                    src={mediaSrc}
+                    isVoice={media.mediaType === "voice"}
+                    fileSize={media.fileSize}
+                />
             )
         }
 

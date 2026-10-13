@@ -1132,7 +1132,8 @@ impl SessionManager {
         let (wa_media_type, mime_type_str) = match media_type {
             "image" => (MediaType::Image, "image/jpeg"),
             "video" => (MediaType::Video, "video/mp4"),
-            "audio" | "voice" => (MediaType::Audio, "audio/ogg"),
+            "voice" => (MediaType::Audio, "audio/ogg; codecs=opus"),
+            "audio" => (MediaType::Audio, "audio/ogg"),
             "sticker" => (MediaType::Sticker, "image/webp"),
             _ => (MediaType::Document, "application/octet-stream"),
         };

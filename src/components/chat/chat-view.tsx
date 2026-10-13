@@ -29,6 +29,7 @@ import {
 import { formatPhoneNumber, getSenderColor } from "../../lib/format-sender"
 import { WhatsAppService } from "../../services/whatsapp-service"
 import { EmojiStickerPicker } from "./emoji-sticker-picker"
+import { ImageLightboxModal } from "./image-lightbox-modal"
 import { MessageContextMenu } from "./message-context-menu"
 import { useAccount } from "../providers/account-provider"
 import { GroupMembersModal } from "./group-members-modal"
@@ -117,6 +118,11 @@ export function ChatView() {
     // Message info modal
     const [infoMessage, setInfoMessage] = useState<Message | null>(null)
 
+    // Media Lightbox Gallery navigation
+    const [viewerMediaIndex, setViewerMediaIndex] = useState<number | null>(
+        null,
+    )
+
     // Voice recording state
     const [isRecording, setIsRecording] = useState(false)
     const [recordingDuration, setRecordingDuration] = useState(0)
@@ -186,6 +192,24 @@ export function ChatView() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
     }, [messages])
 
+    // List of media messages in this chat for gallery navigation (photos, videos, audio, documents)
+    const mediaMessages = messages.filter(
+        (m) =>
+            m.media &&
+            (m.media.mediaType === "image" ||
+                m.media.mediaType === "video" ||
+                m.media.mediaType === "audio" ||
+                m.media.mediaType === "voice" ||
+                m.media.mediaType === "document"),
+    )
+
+    const activeViewerMsg =
+        viewerMediaIndex !== null ? mediaMessages[viewerMediaIndex] : null
+    const activeViewerMedia = activeViewerMsg?.media
+    const activeViewerMediaSrc = activeViewerMedia?.localPath
+        ? convertFileSrc(activeViewerMedia.localPath)
+        : null
+
     if (!activeChat) return null
 
     const handleSend = async () => {
@@ -218,12 +242,14 @@ export function ChatView() {
                 audio: true,
             })
             const mimeType = MediaRecorder.isTypeSupported(
-                "audio/webm;codecs=opus",
+                "audio/ogg;codecs=opus",
             )
-                ? "audio/webm;codecs=opus"
-                : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
-                  ? "audio/ogg;codecs=opus"
-                  : "audio/webm"
+                ? "audio/ogg;codecs=opus"
+                : MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
+                  ? "audio/webm;codecs=opus"
+                  : MediaRecorder.isTypeSupported("audio/webm")
+                    ? "audio/webm"
+                    : "audio/ogg"
 
             const recorder = new MediaRecorder(stream, { mimeType })
             audioChunksRef.current = []
@@ -809,6 +835,14 @@ export function ChatView() {
                                         onDownload={() =>
                                             downloadMedia(message.id)
                                         }
+                                        onOpenMediaViewer={() => {
+                                            const idx = mediaMessages.findIndex(
+                                                (m) => m.id === message.id,
+                                            )
+                                            if (idx !== -1) {
+                                                setViewerMediaIndex(idx)
+                                            }
+                                        }}
                                         onConvertToSticker={
                                             message.media.mediaType === "image"
                                                 ? () =>
@@ -936,6 +970,42 @@ export function ChatView() {
                     onLeaveGroupSuccess={() => {
                         setIsGroupMembersOpen(false)
                     }}
+                />
+            )}
+
+            {/* Media Lightbox Gallery with Navigation */}
+            {activeViewerMedia && activeViewerMediaSrc && (
+                <ImageLightboxModal
+                    isOpen={viewerMediaIndex !== null}
+                    imageUrl={activeViewerMediaSrc}
+                    localPath={activeViewerMedia.localPath}
+                    fileName={activeViewerMedia.fileName}
+                    fileSize={activeViewerMedia.fileSize}
+                    hasPrev={viewerMediaIndex !== null && viewerMediaIndex > 0}
+                    hasNext={
+                        viewerMediaIndex !== null &&
+                        viewerMediaIndex < mediaMessages.length - 1
+                    }
+                    onPrev={() => {
+                        if (viewerMediaIndex !== null && viewerMediaIndex > 0) {
+                            setViewerMediaIndex(viewerMediaIndex - 1)
+                        }
+                    }}
+                    onNext={() => {
+                        if (
+                            viewerMediaIndex !== null &&
+                            viewerMediaIndex < mediaMessages.length - 1
+                        ) {
+                            setViewerMediaIndex(viewerMediaIndex + 1)
+                        }
+                    }}
+                    onClose={() => setViewerMediaIndex(null)}
+                    onConvertToSticker={
+                        activeViewerMedia.mediaType === "image" &&
+                        activeViewerMsg
+                            ? () => handleConvertToSticker(activeViewerMsg)
+                            : undefined
+                    }
                 />
             )}
 
