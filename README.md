@@ -6,9 +6,9 @@
 
 **Cliente desktop moderno, leve e ultrarrápido para WhatsApp construído com Tauri v2, Rust e React 19.**
 
-[![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange.svg)]()
-[![Versão](<https://img.shields.io/badge/versão-v0.1.0%20(não%20lançada)-yellow.svg>)]()
-[![Licença](https://img.shields.io/badge/license-MIT-blue.svg)]()
+[![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange.svg)](<>)
+[![Versão](<https://img.shields.io/badge/versão-v0.1.0%20(não%20lançada)-yellow.svg>)](<>)
+[![Licença](https://img.shields.io/badge/license-MIT-blue.svg)](<>)
 
 </div>
 
