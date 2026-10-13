@@ -230,6 +230,24 @@ export function ChatView() {
         }
     }
 
+    const handlePaste = (e: React.ClipboardEvent) => {
+        const items = e.clipboardData?.items
+        if (!items || items.length === 0) return
+
+        for (let i = 0; i < items.length; i++) {
+            const item = items[i]
+            if (item.kind === "file") {
+                const file = item.getAsFile()
+                if (file) {
+                    e.preventDefault()
+                    setPendingFile(file)
+                    setIsMediaModalOpen(true)
+                    return
+                }
+            }
+        }
+    }
+
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
@@ -1218,6 +1236,7 @@ export function ChatView() {
                                         setInputText(e.target.value)
                                     }
                                     onKeyDown={handleKeyDown}
+                                    onPaste={handlePaste}
                                     placeholder="Digite uma mensagem..."
                                     rows={1}
                                     className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none resize-none max-h-32 font-sans"
