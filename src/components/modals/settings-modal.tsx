@@ -67,11 +67,15 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                         <span>Configurações</span>
                     </DialogTitle>
                     <DialogDescription className="text-xs">
-                        Gerencie downloads de mídias, desempenho nativo e aparência.
+                        Gerencie downloads de mídias, desempenho nativo e
+                        aparência.
                     </DialogDescription>
                 </DialogHeader>
 
-                <Tabs defaultValue="downloads" className="flex-1 flex flex-col min-h-0 mt-3">
+                <Tabs
+                    defaultValue="downloads"
+                    className="flex-1 flex flex-col min-h-0 mt-3"
+                >
                     <TabsList className="grid grid-cols-3 w-full shrink-0 h-9 p-1 bg-muted/70 rounded-xl">
                         <TabsTrigger
                             value="downloads"
@@ -107,7 +111,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                     Download Automático de Mídias
                                 </h4>
                                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    Desative tipos que prefere baixar sob demanda para economizar disco e dados.
+                                    Desative tipos que prefere baixar sob
+                                    demanda para economizar disco e dados.
                                 </p>
                             </div>
                             <Badge
@@ -189,7 +194,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Documentos e Arquivos
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Baixar PDFs, planilhas e arquivos anexados
+                                        Baixar PDFs, planilhas e arquivos
+                                        anexados
                                     </p>
                                 </div>
                                 <Switch
@@ -210,7 +216,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Limite Máximo por Arquivo
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Não baixar mídias maiores que o limite especificado
+                                        Não baixar mídias maiores que o limite
+                                        especificado
                                     </p>
                                 </div>
                                 <select
@@ -225,7 +232,9 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                 >
                                     <option value={2}>Até 2 MB</option>
                                     <option value={5}>Até 5 MB</option>
-                                    <option value={10}>Até 10 MB (Padrão)</option>
+                                    <option value={10}>
+                                        Até 10 MB (Padrão)
+                                    </option>
                                     <option value={25}>Até 25 MB</option>
                                     <option value={50}>Até 50 MB</option>
                                     <option value={0}>Sem limite</option>
@@ -239,11 +248,14 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Apenas em Redes Wi-Fi
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Evita consumo de planos de dados móveis / roteamento
+                                        Evita consumo de planos de dados móveis
+                                        / roteamento
                                     </p>
                                 </div>
                                 <Switch
-                                    checked={settings.autoDownload.autoDownloadOnWifi}
+                                    checked={
+                                        settings.autoDownload.autoDownloadOnWifi
+                                    }
                                     onCheckedChange={(checked) =>
                                         handleAutoDownloadChange(
                                             "autoDownloadOnWifi",
@@ -266,7 +278,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                     Desempenho Nativo (Zero Lag)
                                 </h4>
                                 <p className="text-[11px] text-muted-foreground mt-0.5">
-                                    Otimizações de renderização, GPU e limpeza de armazenamento local.
+                                    Otimizações de renderização, GPU e limpeza
+                                    de armazenamento local.
                                 </p>
                             </div>
                             <Badge
@@ -284,7 +297,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Modo Alto Desempenho
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Descarrega mídias inativas da memória RAM e prioriza 60fps constantes
+                                        Descarrega mídias inativas da memória
+                                        RAM e prioriza 60fps constantes
                                     </p>
                                 </div>
                                 <Switch
@@ -301,13 +315,17 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                         Aceleração por Hardware (GPU)
                                     </h5>
                                     <p className="text-[11px] text-muted-foreground">
-                                        Renderização acelerada via GPU nativa do Windows (DirectX/WebView2)
+                                        Renderização acelerada via GPU nativa do
+                                        Windows (DirectX/WebView2)
                                     </p>
                                 </div>
                                 <Switch
                                     checked={settings.hardwareAcceleration}
                                     onCheckedChange={(checked) =>
-                                        handleToggle("hardwareAcceleration", checked)
+                                        handleToggle(
+                                            "hardwareAcceleration",
+                                            checked,
+                                        )
                                     }
                                 />
                             </div>
@@ -317,15 +335,21 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                     <div className="flex items-center gap-1.5">
                                         <LuHardDrive className="w-3.5 h-3.5 text-primary" />
                                         <h5 className="text-xs font-medium text-foreground">
-                                            Purgar Mensagens Apagadas (SQLite e Cache)
+                                            Purgar Mensagens Apagadas (SQLite e
+                                            Cache)
                                         </h5>
                                     </div>
                                     <p className="text-[11px] text-muted-foreground mt-0.5">
-                                        Exclui permanentemente mensagens revogadas e limpa seus arquivos de mídia do disco local
+                                        Exclui permanentemente mensagens
+                                        revogadas e limpa seus arquivos de mídia
+                                        do disco local
                                     </p>
                                 </div>
                                 <Switch
-                                    checked={settings.autoPurgeRevokedMessages ?? true}
+                                    checked={
+                                        settings.autoPurgeRevokedMessages ??
+                                        true
+                                    }
                                     onCheckedChange={(checked) =>
                                         handleToggle(
                                             "autoPurgeRevokedMessages",
@@ -347,7 +371,8 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                 Tema da Interface
                             </h4>
                             <p className="text-[11px] text-muted-foreground mt-0.5">
-                                Escolha o esquema visual do aplicativo para o seu ambiente de trabalho.
+                                Escolha o esquema visual do aplicativo para o
+                                seu ambiente de trabalho.
                             </p>
                         </div>
 
