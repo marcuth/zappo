@@ -251,7 +251,9 @@ impl SessionManager {
                                             continue;
                                         }
 
-                                        if let Some(existing) = chats.iter_mut().find(|c| c.jid == jid_str) {
+                                        if let Some(existing) =
+                                            chats.iter_mut().find(|c| c.jid == jid_str)
+                                        {
                                             if existing.name != subject || !existing.is_group {
                                                 existing.name = subject;
                                                 existing.is_group = true;
@@ -290,7 +292,10 @@ impl SessionManager {
                                     }
                                 }
                                 Err(e) => {
-                                    eprintln!("[Zappo] Erro ao sincronizar grupos participantes: {:?}", e);
+                                    eprintln!(
+                                        "[Zappo] Erro ao sincronizar grupos participantes: {:?}",
+                                        e
+                                    );
                                 }
                             }
                         });
@@ -380,7 +385,11 @@ impl SessionManager {
                                                 .as_option()
                                                 .and_then(|m| m.text_content())
                                                 .map(|s| s.to_string());
-                                            if text.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+                                            if text
+                                                .as_ref()
+                                                .map(|s| s.trim().is_empty())
+                                                .unwrap_or(true)
+                                            {
                                                 continue;
                                             }
                                             let sender_name = wmi.push_name.clone();
@@ -846,11 +855,15 @@ impl SessionManager {
                         let app_grp = app.clone();
                         tokio::spawn(async move {
                             if let Ok(parsed_jid) = c_jid.parse::<Jid>() {
-                                if let Ok(meta) = client_grp.groups().get_metadata(&parsed_jid).await {
+                                if let Ok(meta) =
+                                    client_grp.groups().get_metadata(&parsed_jid).await
+                                {
                                     let subject = meta.subject.trim().to_string();
                                     if !subject.is_empty() {
                                         let mut fresh_chats = storage_grp.load_chats(&acc_grp);
-                                        if let Some(target) = fresh_chats.iter_mut().find(|c| c.jid == c_jid) {
+                                        if let Some(target) =
+                                            fresh_chats.iter_mut().find(|c| c.jid == c_jid)
+                                        {
                                             if target.name != subject {
                                                 target.name = subject;
                                                 storage_grp.save_chats(&acc_grp, &fresh_chats);
