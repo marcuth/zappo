@@ -94,9 +94,9 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [ ] **Mensagens de Visualização Única:** Permitir o envio e a visualização de mídias temporárias (_view once_).
 - [ ] **Canais de Transmissão:** Permitir acompanhamento e visualização de mensagens em canais oficiais.
 - [ ] **Sincronização de Limpeza:** Aprimorar a sincronização ao limpar e excluir conversas junto aos servidores do WhatsApp.
-- [ ] **Reações a Mensagens:** Permitir adicionar e visualizar reações com emojis nas mensagens recebidas e enviadas.
-- [ ] **Expansão de Emojis:** Adicionar mais emojis ao acervo do seletor abrangendo animais, comidas, atividades e símbolos adicionais.
-- Ver dados da mensagem
+- [x] **Reações a Mensagens:** Permitir adicionar e visualizar reações com emojis nas mensagens recebidas e enviadas.
+- [x] **Expansão de Emojis:** Adicionar mais emojis ao acervo do seletor abrangendo animais, comidas, atividades e símbolos adicionais.
+- [x] **Ver dados da mensagem:** Visualizar metadados técnicos de uma mensagem (ID, JID, timestamp, status, campos de criptografia).
 
 ### 👥 Gestão de Grupos e Contatos
 
