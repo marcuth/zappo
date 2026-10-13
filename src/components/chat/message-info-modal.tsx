@@ -12,9 +12,9 @@ import {
 } from "react-icons/lu"
 import { useState } from "react"
 
+import { Message } from "../../types"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
-import { Message } from "../../types"
 
 interface MessageInfoModalProps {
     message: Message | null
@@ -180,8 +180,14 @@ export function MessageInfoModal({
                     {/* Identificação */}
                     <SectionHeader icon={LuHash} title="Identificação" />
                     <div className="bg-muted/30 rounded-xl px-3 py-1">
-                        <CopyableField label="ID da Mensagem" value={message.id} />
-                        <CopyableField label="Chat JID" value={message.chatJid} />
+                        <CopyableField
+                            label="ID da Mensagem"
+                            value={message.id}
+                        />
+                        <CopyableField
+                            label="Chat JID"
+                            value={message.chatJid}
+                        />
                     </div>
 
                     {/* Remetente */}
@@ -199,7 +205,9 @@ export function MessageInfoModal({
                                             : "bg-muted text-muted-foreground border-border"
                                     }`}
                                 >
-                                    {message.fromMe ? "Enviada por mim" : "Recebida"}
+                                    {message.fromMe
+                                        ? "Enviada por mim"
+                                        : "Recebida"}
                                 </Badge>
                             </div>
                         </div>
@@ -244,7 +252,8 @@ export function MessageInfoModal({
                             <Badge
                                 className={`text-[10px] px-2 py-0 h-5 border ${STATUS_COLORS[message.status] ?? "bg-muted text-muted-foreground border-border"}`}
                             >
-                                {STATUS_LABELS[message.status] ?? message.status}
+                                {STATUS_LABELS[message.status] ??
+                                    message.status}
                             </Badge>
                         </div>
                     </div>
@@ -279,15 +288,19 @@ export function MessageInfoModal({
                     {/* Mídia */}
                     {message.media && (
                         <>
-                            <SectionHeader icon={LuFileText} title="Mídia Anexada" />
+                            <SectionHeader
+                                icon={LuFileText}
+                                title="Mídia Anexada"
+                            />
                             <div className="bg-muted/30 rounded-xl px-3 py-1">
                                 <div className="py-2 border-b border-border/40">
                                     <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide mb-0.5">
                                         Tipo
                                     </p>
                                     <p className="text-xs text-foreground">
-                                        {MEDIA_TYPE_LABELS[message.media.mediaType] ??
-                                            message.media.mediaType}
+                                        {MEDIA_TYPE_LABELS[
+                                            message.media.mediaType
+                                        ] ?? message.media.mediaType}
                                     </p>
                                 </div>
                                 <CopyableField
@@ -305,7 +318,9 @@ export function MessageInfoModal({
                                     </p>
                                     <p className="text-xs text-foreground font-mono">
                                         {formatBytes(message.media.fileSize)} (
-                                        {message.media.fileSize.toLocaleString("pt-BR")}{" "}
+                                        {message.media.fileSize.toLocaleString(
+                                            "pt-BR",
+                                        )}{" "}
                                         bytes)
                                     </p>
                                 </div>

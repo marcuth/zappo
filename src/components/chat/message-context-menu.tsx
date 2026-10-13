@@ -1,9 +1,4 @@
-import {
-    LuCopy,
-    LuInfo,
-    LuSmile,
-    LuX,
-} from "react-icons/lu"
+import { LuCopy, LuInfo, LuSmile, LuX } from "react-icons/lu"
 import { useEffect, useRef, useState } from "react"
 
 interface MessageContextMenuProps {
@@ -49,7 +44,10 @@ export function MessageContextMenu({
         if (nx < 8) nx = 8
         if (ny < 8) ny = 8
 
-        setAdjustedPos({ x: nx, y: ny })
+        const frameId = requestAnimationFrame(() => {
+            setAdjustedPos({ x: nx, y: ny })
+        })
+        return () => cancelAnimationFrame(frameId)
     }, [isOpen, x, y])
 
     useEffect(() => {

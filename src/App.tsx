@@ -4,6 +4,7 @@ import {
     AccountProvider,
     useAccount,
 } from "./components/providers/account-provider"
+import { AvatarProvider } from "./components/providers/avatar-provider"
 import { ThemeProvider } from "./components/providers/theme-provider"
 import { AccountsModal } from "./components/modals/accounts-modal"
 import { SettingsModal } from "./components/modals/settings-modal"
@@ -47,7 +48,9 @@ export default function App() {
     return (
         <ThemeProvider defaultTheme="dark">
             <AccountProvider>
-                <MainApp />
+                <AvatarProvider>
+                    <MainApp />
+                </AvatarProvider>
             </AccountProvider>
         </ThemeProvider>
     )

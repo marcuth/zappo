@@ -1,4 +1,5 @@
 import {
+    LuBellOff,
     LuHardDrive,
     LuMessageSquare,
     LuMessageSquarePlus,
@@ -13,6 +14,7 @@ import { useState } from "react"
 
 import { useAccount } from "../providers/account-provider"
 import { NewChatModal } from "../modals/new-chat-modal"
+import { ChatAvatar } from "../chat/chat-avatar"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
 import { Input } from "../ui/input"
@@ -305,13 +307,6 @@ export function Sidebar({
                 ) : (
                     filteredChats.map((chat) => {
                         const isSelected = activeChat?.id === chat.id
-                        const initials = chat.name
-                            .split(" ")
-                            .slice(0, 2)
-                            .map((n) => n[0])
-                            .join("")
-                            .toUpperCase()
-
                         const timeFormatted = new Date(
                             chat.updatedAt,
                         ).toLocaleTimeString([], {
@@ -330,23 +325,26 @@ export function Sidebar({
                                 }`}
                             >
                                 {/* Avatar */}
-                                <div className="relative shrink-0">
-                                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-muted to-muted-foreground/20 border border-border flex items-center justify-center font-bold text-xs text-foreground shadow-sm">
-                                        {initials}
-                                    </div>
-                                    {chat.isGroup && (
-                                        <span className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-card border border-border flex items-center justify-center text-[9px]">
-                                            👥
-                                        </span>
-                                    )}
-                                </div>
+                                <ChatAvatar
+                                    jid={chat.jid}
+                                    name={chat.name}
+                                    isGroup={chat.isGroup}
+                                />
 
                                 {/* Chat Metadata & Snippet */}
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between mb-1">
-                                        <h4 className="text-xs font-semibold text-foreground truncate">
-                                            {chat.name}
-                                        </h4>
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                            <h4 className="text-xs font-semibold text-foreground truncate">
+                                                {chat.name}
+                                            </h4>
+                                            {chat.isMuted && (
+                                                <LuBellOff
+                                                    className="w-3 h-3 text-muted-foreground/70 shrink-0"
+                                                    title="Silenciado"
+                                                />
+                                            )}
+                                        </div>
                                         <span className="text-[10px] text-muted-foreground shrink-0 ml-1">
                                             {timeFormatted}
                                         </span>

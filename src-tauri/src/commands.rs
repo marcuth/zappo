@@ -1,5 +1,6 @@
 use crate::models::{
-    Account, AppSettings, Chat, Message, PairingCodeResponse, QrCodeResponse, StorageStats,
+    Account, AppSettings, Chat, GroupParticipant, Message, PairingCodeResponse, QrCodeResponse,
+    StorageStats,
 };
 use crate::session_manager::SessionManager;
 use crate::storage::StorageManager;
@@ -281,3 +282,84 @@ pub fn save_bytes_to_path(data_base64: String, destination_path: String) -> Resu
         .map_err(|e| format!("Erro ao salvar arquivo: {}", e))?;
     Ok(())
 }
+
+#[tauri::command]
+pub async fn get_profile_picture(
+    state: State<'_, AppState>,
+    jid: String,
+) -> Result<Option<String>, String> {
+    state.session_mgr.get_profile_picture(&jid).await
+}
+
+#[tauri::command]
+pub async fn get_group_members(
+    state: State<'_, AppState>,
+    group_jid: String,
+) -> Result<Vec<GroupParticipant>, String> {
+    state.session_mgr.get_group_members(&group_jid).await
+}
+
+#[tauri::command]
+pub async fn add_group_participant(
+    state: State<'_, AppState>,
+    group_jid: String,
+    phone_or_jid: String,
+) -> Result<(), String> {
+    state
+        .session_mgr
+        .add_group_participant(&group_jid, &phone_or_jid)
+        .await
+}
+
+#[tauri::command]
+pub async fn leave_group(
+    state: State<'_, AppState>,
+    account_id: String,
+    group_jid: String,
+) -> Result<(), String> {
+    state.session_mgr.leave_group(&account_id, &group_jid).await
+}
+
+#[tauri::command]
+pub async fn mute_chat(
+    state: State<'_, AppState>,
+    account_id: String,
+    chat_jid: String,
+    mute_end_timestamp: Option<i64>,
+) -> Result<(), String> {
+    state
+        .session_mgr
+        .mute_chat(&account_id, &chat_jid, mute_end_timestamp)
+        .await
+}
+
+#[tauri::command]
+pub async fn unmute_chat(
+    state: State<'_, AppState>,
+    account_id: String,
+    chat_jid: String,
+) -> Result<(), String> {
+    state.session_mgr.unmute_chat(&account_id, &chat_jid).await
+}
+
+#[tauri::command]
+pub async fn send_reaction(
+    state: State<'_, AppState>,
+    chat_jid: String,
+    message_id: String,
+    from_me: bool,
+    participant_jid: Option<String>,
+    emoji: String,
+) -> Result<(), String> {
+    state
+        .session_mgr
+        .send_reaction(
+            &chat_jid,
+            &message_id,
+            from_me,
+            participant_jid.as_deref(),
+            &emoji,
+        )
+        .await
+}
+

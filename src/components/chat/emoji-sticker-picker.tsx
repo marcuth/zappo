@@ -526,7 +526,6 @@ const EMOJI_CATEGORIES = [
     },
 ]
 
-
 const EMOJI_KEYWORDS: Record<string, string[]> = {
     // Carinhas & Emoções
     "😀": ["sorriso", "feliz", "alegre", "smile", "happy", "grinning"],

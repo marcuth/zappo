@@ -92,6 +92,20 @@ pub struct LastMessagePreview {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct GroupParticipant {
+    pub jid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    pub is_admin: bool,
+    pub is_super_admin: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Chat {
     pub id: String,
     pub jid: String,
@@ -104,6 +118,10 @@ pub struct Chat {
     pub unread_count: u32,
     pub pinned: bool,
     pub archived: bool,
+    #[serde(default)]
+    pub is_muted: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mute_end_timestamp: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_message: Option<LastMessagePreview>,
     pub updated_at: i64,

@@ -9,6 +9,15 @@ export interface LastMessagePreview {
     status?: MessageStatus
 }
 
+export interface GroupParticipant {
+    jid: string
+    phone?: string
+    displayName?: string
+    isAdmin: boolean
+    isSuperAdmin: boolean
+    avatarUrl?: string
+}
+
 export interface Chat {
     id: string
     jid: string
@@ -19,6 +28,8 @@ export interface Chat {
     unreadCount: number
     pinned: boolean
     archived: boolean
+    isMuted?: boolean
+    muteEndTimestamp?: number
     lastMessage?: LastMessagePreview
     updatedAt: number
 }

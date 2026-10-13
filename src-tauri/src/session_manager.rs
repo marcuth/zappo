@@ -6,6 +6,8 @@ use tokio::sync::Mutex;
 use whatsapp_rust::download::MediaType;
 use whatsapp_rust::prelude::*;
 use whatsapp_rust::types::events::{Event, EventKind};
+use whatsapp_rust::wacore_binary::JidExt;
+use whatsapp_rust::PictureType;
 
 pub struct SessionManager {
     pub storage: Arc<StorageManager>,
@@ -270,6 +272,8 @@ impl SessionManager {
                                                 unread_count: 0,
                                                 pinned: false,
                                                 archived: false,
+                                                is_muted: false,
+                                                mute_end_timestamp: None,
                                                 last_message: None,
                                                 updated_at: now,
                                             });
@@ -467,6 +471,8 @@ impl SessionManager {
                                             unread_count,
                                             pinned: false,
                                             archived: false,
+                                            is_muted: false,
+                                            mute_end_timestamp: None,
                                             last_message: last_msg_preview,
                                             updated_at: chat_ts,
                                         });
@@ -911,6 +917,8 @@ impl SessionManager {
                             unread_count: if is_from_me { 0 } else { 1 },
                             pinned: false,
                             archived: false,
+                            is_muted: false,
+                            mute_end_timestamp: None,
                             last_message: Some(preview),
                             updated_at: now,
                         });
@@ -1463,6 +1471,8 @@ impl SessionManager {
             unread_count: 0,
             pinned: false,
             archived: false,
+            is_muted: false,
+            mute_end_timestamp: None,
             last_message: None,
             updated_at: now,
         };
@@ -1517,6 +1527,8 @@ impl SessionManager {
                                     unread_count: 0,
                                     pinned: false,
                                     archived: false,
+                                    is_muted: false,
+                                    mute_end_timestamp: None,
                                     last_message: None,
                                     updated_at: now,
                                 });
@@ -1564,5 +1576,277 @@ impl SessionManager {
         self.storage.save_accounts(&accounts);
 
         Ok(())
+    }
+
+    /// Busca a foto de perfil de um contato ou grupo no WhatsApp
+    pub async fn get_profile_picture(
+        &self,
+        jid_str: &str,
+    ) -> Result<Option<String>, String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = jid_str.parse::<Jid>() {
+                    if jid.is_group() {
+                        match client.groups().get_profile_pictures(vec![jid], PictureType::Preview).await {
+                            Ok(pics) => {
+                                if let Some(p) = pics.into_iter().next() {
+                                    return Ok(p.url);
+                                }
+                            }
+                            Err(e) => {
+                                eprintln!("Erro ao buscar foto do grupo {}: {:?}", jid_str, e);
+                            }
+                        }
+                    } else {
+                        match client.contacts().get_profile_picture(&jid, true).await {
+                            Ok(Some(pic)) => return Ok(Some(pic.url)),
+                            Ok(None) => return Ok(None),
+                            Err(e) => {
+                                eprintln!("Erro ao buscar foto do contato {}: {:?}", jid_str, e);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    /// Obtém detalhes dos participantes e administradores de um grupo
+    pub async fn get_group_members(
+        &self,
+        group_jid_str: &str,
+    ) -> Result<Vec<crate::models::GroupParticipant>, String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                let jid = group_jid_str
+                    .parse::<Jid>()
+                    .map_err(|e| format!("JID inválido: {:?}", e))?;
+                
+                let meta = client
+                    .groups()
+                    .get_metadata(&jid)
+                    .await
+                    .map_err(|e| format!("Erro ao obter metadados do grupo: {:?}", e))?;
+
+                let participants = meta
+                    .participants
+                    .into_iter()
+                    .map(|p| {
+                        let p_jid_str = p.jid.to_string();
+                        let phone = p.phone_number.as_ref().map(|j| j.user.to_string()).or_else(|| {
+                            if !p.jid.is_lid() {
+                                Some(p.jid.user.to_string())
+                            } else {
+                                None
+                            }
+                        });
+                        let display_name = p.username.as_ref().map(|u| u.to_string());
+                        let is_admin = p.is_admin();
+                        let is_super_admin = p.is_super_admin();
+
+                        crate::models::GroupParticipant {
+                            jid: p_jid_str,
+                            phone,
+                            display_name,
+                            is_admin,
+                            is_super_admin,
+                            avatar_url: None,
+                        }
+                    })
+                    .collect();
+
+                return Ok(participants);
+            }
+        }
+        Err("Sessão do WhatsApp não conectada".to_string())
+    }
+
+    /// Adiciona um novo participante ao grupo usando JID ou número de telefone
+    pub async fn add_group_participant(
+        &self,
+        group_jid_str: &str,
+        phone_or_jid: &str,
+    ) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                let group_jid = group_jid_str
+                    .parse::<Jid>()
+                    .map_err(|e| format!("JID do grupo inválido: {:?}", e))?;
+
+                let clean = phone_or_jid.replace(['+', '-', ' ', '(', ')'], "");
+                let participant_jid_str = if clean.contains('@') {
+                    clean
+                } else {
+                    format!("{}@s.whatsapp.net", clean)
+                };
+
+                let participant_jid = participant_jid_str
+                    .parse::<Jid>()
+                    .map_err(|e| format!("JID do participante inválido: {:?}", e))?;
+
+                client
+                    .groups()
+                    .add_participants(&group_jid, &[participant_jid])
+                    .await
+                    .map_err(|e| format!("Erro ao adicionar participante: {:?}", e))?;
+
+                return Ok(());
+            }
+        }
+        Err("Sessão do WhatsApp não conectada".to_string())
+    }
+
+    /// Sai de um grupo no WhatsApp
+    pub async fn leave_group(
+        &self,
+        account_id: &str,
+        group_jid_str: &str,
+    ) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                let group_jid = group_jid_str
+                    .parse::<Jid>()
+                    .map_err(|e| format!("JID do grupo inválido: {:?}", e))?;
+
+                client
+                    .groups()
+                    .leave(&group_jid)
+                    .await
+                    .map_err(|e| format!("Erro ao sair do grupo: {:?}", e))?;
+            }
+        }
+
+        // Atualiza armazenamento local caso grupo ainda esteja salvo
+        let mut chats = self.storage.load_chats(account_id);
+        chats.retain(|c| c.jid != group_jid_str);
+        self.storage.save_chats(account_id, &chats);
+
+        if let Some(app) = self.app_handle.lock().await.as_ref() {
+            let _ = app.emit(
+                "whatsapp://chats-updated",
+                serde_json::json!({
+                    "accountId": account_id,
+                    "chats": chats
+                }),
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Silencia notificações de uma conversa (grupo ou contato)
+    pub async fn mute_chat(
+        &self,
+        account_id: &str,
+        chat_jid_str: &str,
+        mute_end_timestamp_ms: Option<i64>,
+    ) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid_str.parse::<Jid>() {
+                    if let Some(until) = mute_end_timestamp_ms {
+                        let _ = client.chat_actions().mute_chat_until(&jid, until).await;
+                    } else {
+                        let _ = client.chat_actions().mute_chat(&jid).await;
+                    }
+                }
+            }
+        }
+
+        let mut chats = self.storage.load_chats(account_id);
+        if let Some(chat) = chats.iter_mut().find(|c| c.jid == chat_jid_str) {
+            chat.is_muted = true;
+            chat.mute_end_timestamp = mute_end_timestamp_ms;
+            self.storage.save_chats(account_id, &chats);
+
+            if let Some(app) = self.app_handle.lock().await.as_ref() {
+                let _ = app.emit(
+                    "whatsapp://chats-updated",
+                    serde_json::json!({
+                        "accountId": account_id,
+                        "chats": chats
+                    }),
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Desfaz o silenciamento de uma conversa
+    pub async fn unmute_chat(
+        &self,
+        account_id: &str,
+        chat_jid_str: &str,
+    ) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                if let Ok(jid) = chat_jid_str.parse::<Jid>() {
+                    let _ = client.chat_actions().unmute_chat(&jid).await;
+                }
+            }
+        }
+
+        let mut chats = self.storage.load_chats(account_id);
+        if let Some(chat) = chats.iter_mut().find(|c| c.jid == chat_jid_str) {
+            chat.is_muted = false;
+            chat.mute_end_timestamp = None;
+            self.storage.save_chats(account_id, &chats);
+
+            if let Some(app) = self.app_handle.lock().await.as_ref() {
+                let _ = app.emit(
+                    "whatsapp://chats-updated",
+                    serde_json::json!({
+                        "accountId": account_id,
+                        "chats": chats
+                    }),
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Envia reação com emoji para mensagem no WhatsApp
+    pub async fn send_reaction(
+        &self,
+        chat_jid_str: &str,
+        message_id: &str,
+        from_me: bool,
+        participant_jid_str: Option<&str>,
+        emoji: &str,
+    ) -> Result<(), String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                let chat_jid = chat_jid_str
+                    .parse::<Jid>()
+                    .map_err(|e| format!("JID inválido: {:?}", e))?;
+
+                let mut key = wa::MessageKey::default();
+                key.remote_jid = Some(chat_jid_str.to_string());
+                key.id = Some(message_id.to_string());
+                key.from_me = Some(from_me);
+
+                if let Some(part) = participant_jid_str {
+                    key.participant = Some(part.to_string());
+                }
+
+                client
+                    .send_reaction(&chat_jid, key, emoji)
+                    .await
+                    .map_err(|e| format!("Erro ao enviar reação: {:?}", e))?;
+
+                return Ok(());
+            }
+        }
+        Err("Sessão do WhatsApp não conectada".to_string())
     }
 }

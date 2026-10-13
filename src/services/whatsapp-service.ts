@@ -5,6 +5,7 @@ import {
     Account,
     AppSettings,
     Chat,
+    GroupParticipant,
     Message,
     PairingCodeResponse,
     QrCodeResponse,
@@ -131,6 +132,72 @@ export class WhatsAppService {
         return invoke<string>("download_media", {
             accountId,
             messageId,
+        })
+    }
+
+    // Profile & Group Management
+    static async getProfilePicture(jid: string): Promise<string | null> {
+        return invoke<string | null>("get_profile_picture", { jid })
+    }
+
+    static async getGroupMembers(
+        groupJid: string,
+    ): Promise<GroupParticipant[]> {
+        return invoke<GroupParticipant[]>("get_group_members", { groupJid })
+    }
+
+    static async addGroupParticipant(
+        groupJid: string,
+        phoneOrJid: string,
+    ): Promise<void> {
+        return invoke<void>("add_group_participant", {
+            groupJid,
+            phoneOrJid,
+        })
+    }
+
+    static async leaveGroup(
+        accountId: string,
+        groupJid: string,
+    ): Promise<void> {
+        return invoke<void>("leave_group", {
+            accountId,
+            groupJid,
+        })
+    }
+
+    static async muteChat(
+        accountId: string,
+        chatJid: string,
+        muteEndTimestamp?: number,
+    ): Promise<void> {
+        return invoke<void>("mute_chat", {
+            accountId,
+            chatJid,
+            muteEndTimestamp: muteEndTimestamp || null,
+        })
+    }
+
+    static async unmuteChat(accountId: string, chatJid: string): Promise<void> {
+        return invoke<void>("unmute_chat", {
+            accountId,
+            chatJid,
+        })
+    }
+
+    static async sendReaction(
+        chatJid: string,
+        messageId: string,
+        fromMe: boolean,
+        emoji: string,
+        participantJid?: string,
+    ): Promise<void> {
+        return invoke<void>("send_reaction", {
+            chatJid,
+            messageId,
+            fromMe,
+            emoji,
+            participantJid: participantJid || null,
         })
     }
 

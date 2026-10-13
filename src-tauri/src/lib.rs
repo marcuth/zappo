@@ -61,6 +61,13 @@ pub fn run() {
             commands::save_settings,
             commands::save_file_to_path,
             commands::save_bytes_to_path,
+            commands::get_profile_picture,
+            commands::get_group_members,
+            commands::add_group_participant,
+            commands::leave_group,
+            commands::mute_chat,
+            commands::unmute_chat,
+            commands::send_reaction,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

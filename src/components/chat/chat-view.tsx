@@ -11,20 +11,19 @@ import {
 } from "react-icons/lu"
 import { useCallback, useEffect, useRef, useState, KeyboardEvent } from "react"
 
-import {
-    formatPhoneNumber,
-    getSenderColor,
-    getSenderInitials,
-} from "../../lib/format-sender"
-import { MessageContextMenu } from "./message-context-menu"
-import { MessageInfoModal } from "./message-info-modal"
+import { formatPhoneNumber, getSenderColor } from "../../lib/format-sender"
+import { WhatsAppService } from "../../services/whatsapp-service"
 import { EmojiStickerPicker } from "./emoji-sticker-picker"
+import { MessageContextMenu } from "./message-context-menu"
 import { useAccount } from "../providers/account-provider"
+import { GroupMembersModal } from "./group-members-modal"
 import { MediaMessageCard } from "./media-message-card"
+import { MessageInfoModal } from "./message-info-modal"
 import { MediaSendModal } from "./media-send-modal"
 import { FormattedText } from "./formatted-text"
-import { Button } from "../ui/button"
+import { ChatAvatar } from "./chat-avatar"
 import { Message } from "../../types"
+import { Button } from "../ui/button"
 
 // Map: messageId -> emoji[]
 type ReactionsMap = Record<string, string[]>
@@ -69,6 +68,7 @@ function ExpandableMessageText({
 
 export function ChatView() {
     const {
+        activeAccount,
         activeChat,
         messages,
         sendMessage,
@@ -84,6 +84,7 @@ export function ChatView() {
     const [pendingFile, setPendingFile] = useState<File | null>(null)
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
     const [isSyncingGroups, setIsSyncingGroups] = useState(false)
+    const [isGroupMembersOpen, setIsGroupMembersOpen] = useState(false)
 
     // Context menu
     const [contextMenu, setContextMenu] = useState<{
@@ -106,24 +107,46 @@ export function ChatView() {
         (e: React.MouseEvent | React.TouchEvent, message: Message) => {
             if ("preventDefault" in e) e.preventDefault()
             const clientX =
-                "touches" in e ? e.touches[0].clientX : (e as React.MouseEvent).clientX
+                "touches" in e
+                    ? e.touches[0].clientX
+                    : (e as React.MouseEvent).clientX
             const clientY =
-                "touches" in e ? e.touches[0].clientY : (e as React.MouseEvent).clientY
+                "touches" in e
+                    ? e.touches[0].clientY
+                    : (e as React.MouseEvent).clientY
             setContextMenu({ isOpen: true, x: clientX, y: clientY, message })
         },
         [],
     )
 
-    const handleReact = useCallback((messageId: string, emoji: string) => {
-        setReactions((prev) => {
-            const current = prev[messageId] ?? []
-            // Toggle: remove if already present, add otherwise
-            const next = current.includes(emoji)
-                ? current.filter((e) => e !== emoji)
-                : [...current, emoji]
-            return { ...prev, [messageId]: next }
-        })
-    }, [])
+    const handleReact = useCallback(
+        (messageId: string, emoji: string) => {
+            setReactions((prev) => {
+                const current = prev[messageId] ?? []
+                const next = current.includes(emoji)
+                    ? current.filter((e) => e !== emoji)
+                    : [...current, emoji]
+                return { ...prev, [messageId]: next }
+            })
+
+            // Dispara para o WhatsApp via Rust backend
+            if (activeChat) {
+                const targetMsg = messages.find((m) => m.id === messageId)
+                if (targetMsg) {
+                    WhatsAppService.sendReaction(
+                        activeChat.jid,
+                        messageId,
+                        targetMsg.fromMe,
+                        emoji,
+                        targetMsg.senderJid,
+                    ).catch((err) => {
+                        console.warn("Erro ao enviar reação ao WhatsApp:", err)
+                    })
+                }
+            }
+        },
+        [activeChat, messages],
+    )
 
     // Auto-scroll to bottom on new message
     useEffect(() => {
@@ -192,21 +215,27 @@ export function ChatView() {
         }
     }
 
-    const initials = activeChat.name
-        .split(" ")
-        .slice(0, 2)
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-
     return (
         <section className="flex-1 flex flex-col h-screen bg-background overflow-hidden select-none">
             {/* Header */}
             <div className="h-16 px-4 border-b border-border bg-card/70 backdrop-blur flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shadow-sm shrink-0">
-                        {initials}
-                    </div>
+                <div
+                    onClick={() => {
+                        if (activeChat.isGroup) setIsGroupMembersOpen(true)
+                    }}
+                    className={`flex items-center gap-3 min-w-0 ${
+                        activeChat.isGroup
+                            ? "cursor-pointer hover:opacity-80 transition-opacity"
+                            : ""
+                    }`}
+                >
+                    <ChatAvatar
+                        jid={activeChat.jid}
+                        name={activeChat.name}
+                        isGroup={activeChat.isGroup}
+                        sizeClassName="w-10 h-10"
+                        textClassName="text-xs"
+                    />
                     <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
                             <h3 className="text-sm font-semibold text-foreground leading-tight truncate">
@@ -228,23 +257,37 @@ export function ChatView() {
 
                 <div className="flex items-center gap-1 shrink-0">
                     {activeChat.isGroup && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            onClick={handleSyncGroup}
-                            disabled={isSyncingGroups}
-                            title="Sincronizar informações e nome do grupo"
-                        >
-                            <LuRefreshCw
-                                className={`h-3.5 w-3.5 ${
-                                    isSyncingGroups ? "animate-spin" : ""
-                                }`}
-                            />
-                            <span className="hidden sm:inline">
-                                Sincronizar Grupo
-                            </span>
-                        </Button>
+                        <>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
+                                onClick={() => setIsGroupMembersOpen(true)}
+                                title="Ver membros e opções do grupo"
+                            >
+                                <LuUsers className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">
+                                    Membros
+                                </span>
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                                onClick={handleSyncGroup}
+                                disabled={isSyncingGroups}
+                                title="Sincronizar informações e nome do grupo"
+                            >
+                                <LuRefreshCw
+                                    className={`h-3.5 w-3.5 ${
+                                        isSyncingGroups ? "animate-spin" : ""
+                                    }`}
+                                />
+                                <span className="hidden sm:inline">
+                                    Sincronizar
+                                </span>
+                            </Button>
+                        </>
                     )}
                     <Button
                         variant="ghost"
@@ -315,7 +358,6 @@ export function ChatView() {
                         formatPhoneNumber(message.senderJid) ||
                         "Participante"
                     const formattedPhone = formatPhoneNumber(message.senderJid)
-                    const initials = getSenderInitials(displayName)
 
                     const isSticker = message.media?.mediaType === "sticker"
 
@@ -330,18 +372,23 @@ export function ChatView() {
                             >
                                 <div
                                     className="relative group max-w-[70%]"
-                                    onContextMenu={(e) => openContextMenu(e, message)}
+                                    onContextMenu={(e) =>
+                                        openContextMenu(e, message)
+                                    }
                                 >
                                     {/* Autor da figurinha em grupos */}
                                     {activeChat.isGroup &&
                                         !isFromMe &&
                                         !isSameSender && (
                                             <div className="flex items-center gap-1.5 mb-1 px-1">
-                                                <div
-                                                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold border shrink-0 ${senderColor.bg} ${senderColor.text}`}
-                                                >
-                                                    {initials}
-                                                </div>
+                                                <ChatAvatar
+                                                    jid={
+                                                        message.senderJid || ""
+                                                    }
+                                                    name={displayName}
+                                                    sizeClassName="w-4 h-4"
+                                                    textClassName="text-[7px]"
+                                                />
                                                 <span
                                                     className={`font-semibold text-[11px] truncate ${senderColor.text}`}
                                                 >
@@ -371,11 +418,18 @@ export function ChatView() {
 
                                     {/* Reactions */}
                                     {msgReactions.length > 0 && (
-                                        <div className={`flex flex-wrap gap-0.5 mt-1 px-1 ${isFromMe ? "justify-end" : "justify-start"}`}>
+                                        <div
+                                            className={`flex flex-wrap gap-0.5 mt-1 px-1 ${isFromMe ? "justify-end" : "justify-start"}`}
+                                        >
                                             {msgReactions.map((emoji) => (
                                                 <button
                                                     key={emoji}
-                                                    onClick={() => handleReact(message.id, emoji)}
+                                                    onClick={() =>
+                                                        handleReact(
+                                                            message.id,
+                                                            emoji,
+                                                        )
+                                                    }
                                                     title="Remover reação"
                                                     className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border/60 text-[12px] hover:bg-muted/80 transition-colors cursor-pointer font-emoji"
                                                 >
@@ -398,7 +452,9 @@ export function ChatView() {
                             } ${isSameSender ? "mt-1" : "mt-3.5"}`}
                         >
                             <div
-                                onContextMenu={(e) => openContextMenu(e, message)}
+                                onContextMenu={(e) =>
+                                    openContextMenu(e, message)
+                                }
                                 className={`max-w-[70%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed space-y-1.5 cursor-context-menu ${
                                     isFromMe
                                         ? "bg-primary text-primary-foreground rounded-br-xs"
@@ -410,11 +466,12 @@ export function ChatView() {
                                     !isFromMe &&
                                     !isSameSender && (
                                         <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/40">
-                                            <div
-                                                className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border shrink-0 ${senderColor.bg} ${senderColor.text}`}
-                                            >
-                                                {initials}
-                                            </div>
+                                            <ChatAvatar
+                                                jid={message.senderJid || ""}
+                                                name={displayName}
+                                                sizeClassName="w-5 h-5"
+                                                textClassName="text-[8px]"
+                                            />
                                             <div className="flex items-center gap-1.5 min-w-0">
                                                 <span
                                                     className={`font-semibold text-[11px] truncate ${senderColor.text}`}
@@ -489,7 +546,9 @@ export function ChatView() {
                                     {msgReactions.map((emoji) => (
                                         <button
                                             key={emoji}
-                                            onClick={() => handleReact(message.id, emoji)}
+                                            onClick={() =>
+                                                handleReact(message.id, emoji)
+                                            }
                                             title="Remover reação"
                                             className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border/60 text-[13px] hover:bg-muted/80 transition-colors cursor-pointer font-emoji shadow-sm"
                                         >
@@ -515,7 +574,9 @@ export function ChatView() {
                 }
                 onCopyText={async () => {
                     if (contextMenu.message?.text) {
-                        await navigator.clipboard.writeText(contextMenu.message.text)
+                        await navigator.clipboard.writeText(
+                            contextMenu.message.text,
+                        )
                     }
                 }}
                 onViewInfo={() => setInfoMessage(contextMenu.message)}
@@ -544,6 +605,19 @@ export function ChatView() {
                 }}
                 onSend={handleSendMediaWithCaption}
             />
+
+            {/* Modal de Membros e Gestão de Grupo */}
+            {activeChat.isGroup && (
+                <GroupMembersModal
+                    open={isGroupMembersOpen}
+                    onOpenChange={setIsGroupMembersOpen}
+                    chat={activeChat}
+                    accountId={activeAccount?.id || ""}
+                    onLeaveGroupSuccess={() => {
+                        setIsGroupMembersOpen(false)
+                    }}
+                />
+            )}
 
             {/* Composer */}
             <div className="p-3 border-t border-border bg-card/80 backdrop-blur shrink-0 relative">
