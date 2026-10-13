@@ -62,6 +62,10 @@ export class WhatsAppService {
         return invoke<Chat[]>("get_chats", { accountId })
     }
 
+    static async syncGroups(accountId: string): Promise<Chat[]> {
+        return invoke<Chat[]>("sync_groups", { accountId })
+    }
+
     static async getMessages(
         accountId: string,
         chatJid: string,

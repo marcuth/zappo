@@ -117,6 +117,14 @@ pub fn get_chats(state: State<AppState>, account_id: String) -> Vec<Chat> {
 }
 
 #[tauri::command]
+pub async fn sync_groups(
+    state: State<'_, AppState>,
+    account_id: String,
+) -> Result<Vec<Chat>, String> {
+    state.session_mgr.sync_groups(&account_id).await
+}
+
+#[tauri::command]
 pub fn get_messages(
     state: State<AppState>,
     account_id: String,

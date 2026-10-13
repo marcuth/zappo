@@ -81,11 +81,11 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 
 ### 💬 Mensagens e Conversas
 
-- [ ] **Sincronização de Grupos:** Corrigir a identificação e exibição dos nomes corretos dos grupos.
-- [ ] **Identificação em Grupos:** Exibir foto de perfil, nome e número de telefone do autor de cada mensagem enviada no grupo.
-- [ ] **Mensagens Fantasmas:** Corrigir anomalia de mensagens fantasmas ou duplicadas em conversas em grupo.
+- [x] **Sincronização de Grupos:** Corrigir a identificação e exibição dos nomes corretos dos grupos.
+- [x] **Identificação em Grupos:** Exibir foto de perfil, nome e número de telefone do autor de cada mensagem enviada no grupo.
+- [x] **Mensagens Fantasmas:** Corrigir anomalia de mensagens fantasmas ou duplicadas em conversas em grupo.
 - [ ] **Gerenciamento de Mensagens:** Permitir exclusão (para mim e para todos) e edição de mensagens enviadas.
-- [ ] **Formatação & Links:** Suporte completo à formatação Markdown do WhatsApp (_negrito_, _itálico_, ~tachado~, `código`) e detecção de links clicáveis.
+- [x] **Formatação & Links:** Suporte completo à formatação Markdown do WhatsApp (_negrito_, _itálico_, ~tachado~, `código`) e detecção de links clicáveis.
 - [ ] **Prévia de Links:** Buscar e exibir metadados ricos (título, descrição e imagem de capa) ao compartilhar links.
 - [ ] **Enquetes:** Suporte para envio, visualização e votação em enquetes.
 - [ ] **Mensagens de Visualização Única:** Permitir o envio e a visualização de mídias temporárias (_view once_).
@@ -101,7 +101,7 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 
 ### 🖼️ Mídias, Figurinhas e Documentos
 
-- [ ] **Legendas em Anexos:** Adicionar suporte à inclusão de legendas personalizadas em fotos, vídeos e documentos.
+- [x] **Legendas em Anexos:** Adicionar suporte à inclusão de legendas personalizadas em fotos, vídeos e documentos.
 - [ ] **Visualizador de Imagens (Lightbox):** Permitir clicar na imagem para expandi-la em tela cheia com zoom e navegação.
 - [ ] **Editor de Imagens:** Ferramentas básicas de edição antes do envio (recorte, rabisco/desenho livre e inserção de textos).
 - [ ] **Visualizador de PDF:** Prévia e leitura integrada de documentos PDF diretamente no aplicativo.

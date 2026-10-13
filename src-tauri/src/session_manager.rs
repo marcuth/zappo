@@ -193,10 +193,11 @@ impl SessionManager {
                 let app = app_for_conn.clone();
                 let acc = acc_for_conn.clone();
                 let storage = storage_for_conn.clone();
-                move |_client| {
+                move |client| {
                     let app = app.clone();
                     let acc = acc.clone();
                     let storage = storage.clone();
+                    let client_for_groups = client.clone();
                     async move {
                         println!("[Zappo] Conta {} conectada com sucesso ao WhatsApp!", acc);
                         let mut accounts = storage.load_accounts();
@@ -208,7 +209,7 @@ impl SessionManager {
                         storage.save_accounts(&accounts);
 
                         let existing_chats = storage.load_chats(&acc);
-                        if let Some(app) = app {
+                        if let Some(app) = &app {
                             let _ = app.emit(
                                 "whatsapp://connection-state",
                                 serde_json::json!({
@@ -226,6 +227,73 @@ impl SessionManager {
                                 );
                             }
                         }
+
+                        // Sincroniza em background todos os grupos participantes e seus nomes corretos
+                        let app_groups = app.clone();
+                        let acc_groups = acc.clone();
+                        let storage_groups = storage.clone();
+                        tokio::spawn(async move {
+                            match client_for_groups.groups().get_participating().await {
+                                Ok(participating) => {
+                                    println!(
+                                        "[Zappo] Sincronizados {} grupos participantes para {}",
+                                        participating.len(),
+                                        acc_groups
+                                    );
+                                    let mut chats = storage_groups.load_chats(&acc_groups);
+                                    let mut changed = false;
+                                    let now = chrono::Utc::now().timestamp_millis();
+
+                                    for (jid, meta) in participating {
+                                        let jid_str = jid.to_string();
+                                        let subject = meta.subject.trim().to_string();
+                                        if subject.is_empty() {
+                                            continue;
+                                        }
+
+                                        if let Some(existing) = chats.iter_mut().find(|c| c.jid == jid_str) {
+                                            if existing.name != subject || !existing.is_group {
+                                                existing.name = subject;
+                                                existing.is_group = true;
+                                                changed = true;
+                                            }
+                                        } else {
+                                            chats.push(crate::models::Chat {
+                                                id: jid_str.clone(),
+                                                jid: jid_str,
+                                                name: subject,
+                                                phone_number: None,
+                                                avatar_url: None,
+                                                is_group: true,
+                                                unread_count: 0,
+                                                pinned: false,
+                                                archived: false,
+                                                last_message: None,
+                                                updated_at: now,
+                                            });
+                                            changed = true;
+                                        }
+                                    }
+
+                                    if changed {
+                                        chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+                                        storage_groups.save_chats(&acc_groups, &chats);
+                                        if let Some(ref app) = app_groups {
+                                            let _ = app.emit(
+                                                "whatsapp://chats-updated",
+                                                serde_json::json!({
+                                                    "accountId": acc_groups,
+                                                    "chats": chats
+                                                }),
+                                            );
+                                        }
+                                    }
+                                }
+                                Err(e) => {
+                                    eprintln!("[Zappo] Erro ao sincronizar grupos participantes: {:?}", e);
+                                }
+                            }
+                        });
                     }
                 }
             })
@@ -312,6 +380,9 @@ impl SessionManager {
                                                 .as_option()
                                                 .and_then(|m| m.text_content())
                                                 .map(|s| s.to_string());
+                                            if text.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+                                                continue;
+                                            }
                                             let sender_name = wmi.push_name.clone();
 
                                             let msg = Message {
@@ -423,7 +494,7 @@ impl SessionManager {
                     let chat_jid = ctx.info.source.chat.to_string();
                     let is_from_me = ctx.info.source.is_from_me;
                     let msg_id = ctx.info.id.clone();
-                    let text = ctx.message.text_content().map(|s| s.to_string());
+                    let mut text = ctx.message.text_content().map(|s| s.to_string());
 
                     // Verifica se há mídia anexada (Fotos, Figurinhas/Stickers, Vídeos, Áudio, Documentos)
                     let mut media_att = None;
@@ -657,6 +728,36 @@ impl SessionManager {
                         });
                     }
 
+                    // Extrai legenda da mídia caso o texto principal não tenha sido preenchido
+                    if text.as_ref().map(|s| s.trim().is_empty()).unwrap_or(true) {
+                        if let Some(img) = ctx.message.image_message.as_option() {
+                            if let Some(ref cap) = img.caption {
+                                if !cap.trim().is_empty() {
+                                    text = Some(cap.clone());
+                                }
+                            }
+                        } else if let Some(vid) = ctx.message.video_message.as_option() {
+                            if let Some(ref cap) = vid.caption {
+                                if !cap.trim().is_empty() {
+                                    text = Some(cap.clone());
+                                }
+                            }
+                        } else if let Some(doc) = ctx.message.document_message.as_option() {
+                            if let Some(ref cap) = doc.caption {
+                                if !cap.trim().is_empty() {
+                                    text = Some(cap.clone());
+                                }
+                            }
+                        }
+                    }
+
+                    // Prevenção de mensagens fantasmas: descarta eventos internos que não têm texto e nem mídia
+                    let has_text = text.as_ref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+                    let has_media = media_att.is_some();
+                    if !has_text && !has_media {
+                        return;
+                    }
+
                     let now = chrono::Utc::now().timestamp_millis();
                     let message = Message {
                         id: msg_id.clone(),
@@ -673,19 +774,30 @@ impl SessionManager {
 
                     // 1. Salva a mensagem localmente com deduplicação
                     let mut msgs = storage.load_messages(&acc, &chat_jid);
-                    let already_exists = msgs.iter().any(|m| {
-                        m.id == message.id
-                            || (m.from_me
-                                && is_from_me
-                                && m.text == message.text
-                                && (m.timestamp - now).abs() < 5000)
-                    });
+                    let mut already_exists = false;
+                    for m in &mut msgs {
+                        if m.id == message.id {
+                            already_exists = true;
+                            break;
+                        }
+                        // Unifica mensagem otimista enviada anteriormente por este cliente
+                        if m.from_me
+                            && is_from_me
+                            && m.text == message.text
+                            && (m.timestamp - now).abs() < 15000
+                        {
+                            m.id = message.id.clone();
+                            m.status = "read".to_string();
+                            already_exists = true;
+                            break;
+                        }
+                    }
 
                     if !already_exists {
                         msgs.push(message.clone());
-                        msgs.sort_by_key(|m| m.timestamp);
-                        storage.save_messages(&acc, &chat_jid, &msgs);
                     }
+                    msgs.sort_by_key(|m| m.timestamp);
+                    storage.save_messages(&acc, &chat_jid, &msgs);
 
                     // 2. Atualiza ou adiciona a conversa
                     let mut chats = storage.load_chats(&acc);
@@ -709,11 +821,55 @@ impl SessionManager {
                     };
 
                     let is_group = chat_jid.ends_with("@g.us");
-                    let chat_title = if !ctx.info.push_name.is_empty() {
+                    let chat_title = if is_group {
+                        if let Some(existing) = chats.iter().find(|c| c.jid == chat_jid) {
+                            if !existing.name.is_empty() && existing.name != chat_jid {
+                                existing.name.clone()
+                            } else {
+                                "Grupo".to_string()
+                            }
+                        } else {
+                            "Grupo".to_string()
+                        }
+                    } else if !ctx.info.push_name.is_empty() {
                         ctx.info.push_name.clone()
                     } else {
                         chat_jid.split('@').next().unwrap_or(&chat_jid).to_string()
                     };
+
+                    // Se for grupo novo ou com nome padrão "Grupo", busca metadata em background
+                    if is_group {
+                        let client_grp = ctx.client.clone();
+                        let c_jid = chat_jid.clone();
+                        let acc_grp = acc.clone();
+                        let storage_grp = storage.clone();
+                        let app_grp = app.clone();
+                        tokio::spawn(async move {
+                            if let Ok(parsed_jid) = c_jid.parse::<Jid>() {
+                                if let Ok(meta) = client_grp.groups().get_metadata(&parsed_jid).await {
+                                    let subject = meta.subject.trim().to_string();
+                                    if !subject.is_empty() {
+                                        let mut fresh_chats = storage_grp.load_chats(&acc_grp);
+                                        if let Some(target) = fresh_chats.iter_mut().find(|c| c.jid == c_jid) {
+                                            if target.name != subject {
+                                                target.name = subject;
+                                                storage_grp.save_chats(&acc_grp, &fresh_chats);
+                                                if let Some(ref app) = app_grp {
+                                                    let _ = app.emit(
+                                                        "whatsapp://chats-updated",
+                                                        serde_json::json!({
+                                                            "accountId": acc_grp,
+                                                            "chats": fresh_chats,
+                                                        }),
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
 
                     if let Some(existing) = chats.iter_mut().find(|c| c.jid == chat_jid) {
                         existing.last_message = Some(preview);
@@ -1302,6 +1458,69 @@ impl SessionManager {
         }
 
         Ok(new_chat)
+    }
+
+    pub async fn sync_groups(&self, account_id: &str) -> Result<Vec<crate::models::Chat>, String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                match client.groups().get_participating().await {
+                    Ok(participating) => {
+                        let mut chats = self.storage.load_chats(account_id);
+                        let mut changed = false;
+                        let now = chrono::Utc::now().timestamp_millis();
+
+                        for (jid, meta) in participating {
+                            let jid_str = jid.to_string();
+                            let subject = meta.subject.trim().to_string();
+                            if subject.is_empty() {
+                                continue;
+                            }
+
+                            if let Some(existing) = chats.iter_mut().find(|c| c.jid == jid_str) {
+                                if existing.name != subject || !existing.is_group {
+                                    existing.name = subject;
+                                    existing.is_group = true;
+                                    changed = true;
+                                }
+                            } else {
+                                chats.push(crate::models::Chat {
+                                    id: jid_str.clone(),
+                                    jid: jid_str,
+                                    name: subject,
+                                    phone_number: None,
+                                    avatar_url: None,
+                                    is_group: true,
+                                    unread_count: 0,
+                                    pinned: false,
+                                    archived: false,
+                                    last_message: None,
+                                    updated_at: now,
+                                });
+                                changed = true;
+                            }
+                        }
+
+                        if changed {
+                            chats.sort_by(|a, b| b.updated_at.cmp(&a.updated_at));
+                            self.storage.save_chats(account_id, &chats);
+                            if let Some(app) = self.app_handle.lock().await.as_ref() {
+                                let _ = app.emit(
+                                    "whatsapp://chats-updated",
+                                    serde_json::json!({
+                                        "accountId": account_id,
+                                        "chats": chats
+                                    }),
+                                );
+                            }
+                        }
+                        return Ok(chats);
+                    }
+                    Err(e) => return Err(format!("Erro ao buscar grupos: {:?}", e)),
+                }
+            }
+        }
+        Ok(self.storage.load_chats(account_id))
     }
 
     pub async fn disconnect_active(&self) -> Result<(), String> {

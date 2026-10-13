@@ -58,6 +58,7 @@ interface AccountContextType {
     updateSettings: (newSettings: AppSettings) => Promise<void>
     requestPairingCode: (phoneNumber: string) => Promise<void>
     disconnectActiveAccount: () => Promise<void>
+    syncGroups: () => Promise<void>
 }
 
 const defaultSettings: AppSettings = {
@@ -192,17 +193,22 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                         setMessages((prev) => {
                             if (prev.some((m) => m.id === message.id))
                                 return prev
-                            if (
-                                message.fromMe &&
-                                prev.some(
-                                    (m) =>
-                                        m.fromMe &&
-                                        m.text === message.text &&
-                                        Math.abs(
-                                            m.timestamp - message.timestamp,
-                                        ) < 5000,
-                                )
-                            ) {
+                            const optimisticIndex = message.fromMe
+                                ? prev.findIndex(
+                                      (m) =>
+                                          m.fromMe &&
+                                          m.text === message.text &&
+                                          Math.abs(
+                                              m.timestamp - message.timestamp,
+                                          ) < 15000,
+                                  )
+                                : -1
+                            if (optimisticIndex !== -1) {
+                                const next = [...prev]
+                                next[optimisticIndex] = message
+                                return next
+                            }
+                            if (!message.text?.trim() && !message.media) {
                                 return prev
                             }
                             return [...prev, message]
@@ -704,6 +710,18 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         toast.info("Sessão desconectada.")
     }
 
+    const syncGroups = async () => {
+        if (!activeAccount) return
+        try {
+            const updated = await WhatsAppService.syncGroups(activeAccount.id)
+            setChats(updated)
+            toast.success("Grupos sincronizados com sucesso!")
+        } catch (error) {
+            console.error("Erro ao sincronizar grupos:", error)
+            toast.error("Falha ao sincronizar grupos.")
+        }
+    }
+
     return (
         <AccountContext.Provider
             value={{
@@ -736,6 +754,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 updateSettings,
                 requestPairingCode,
                 disconnectActiveAccount,
+                syncGroups,
             }}
         >
             {children}

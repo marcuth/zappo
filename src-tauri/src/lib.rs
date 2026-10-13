@@ -43,6 +43,7 @@ pub fn run() {
             commands::request_pairing_code,
             commands::disconnect_active_account,
             commands::get_chats,
+            commands::sync_groups,
             commands::get_messages,
             commands::send_message,
             commands::send_media,

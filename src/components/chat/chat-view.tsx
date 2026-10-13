@@ -2,16 +2,25 @@ import {
     LuCheckCheck,
     LuEraser,
     LuPaperclip,
+    LuRefreshCw,
     LuSend,
     LuShieldCheck,
     LuSmile,
     LuTrash2,
+    LuUsers,
 } from "react-icons/lu"
 import { useEffect, useRef, useState, KeyboardEvent } from "react"
 
+import {
+    formatPhoneNumber,
+    getSenderColor,
+    getSenderInitials,
+} from "../../lib/format-sender"
 import { EmojiStickerPicker } from "./emoji-sticker-picker"
 import { useAccount } from "../providers/account-provider"
 import { MediaMessageCard } from "./media-message-card"
+import { MediaSendModal } from "./media-send-modal"
+import { FormattedText } from "./formatted-text"
 import { Button } from "../ui/button"
 
 export function ChatView() {
@@ -23,10 +32,14 @@ export function ChatView() {
         downloadMedia,
         deleteChat,
         clearChatMessages,
+        syncGroups,
     } = useAccount()
 
     const [inputText, setInputText] = useState("")
     const [isPickerOpen, setIsPickerOpen] = useState(false)
+    const [pendingFile, setPendingFile] = useState<File | null>(null)
+    const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
+    const [isSyncingGroups, setIsSyncingGroups] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -51,11 +64,19 @@ export function ChatView() {
         }
     }
 
-    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
-        await sendMedia(file)
+        setPendingFile(file)
+        setIsMediaModalOpen(true)
         e.target.value = ""
+    }
+
+    const handleSendMediaWithCaption = async (file: File, caption?: string) => {
+        await sendMedia(file, caption)
+        if (caption && caption === inputText) {
+            setInputText("")
+        }
     }
 
     const handleClearMessages = async () => {
@@ -80,6 +101,15 @@ export function ChatView() {
         }
     }
 
+    const handleSyncGroup = async () => {
+        setIsSyncingGroups(true)
+        try {
+            await syncGroups()
+        } finally {
+            setIsSyncingGroups(false)
+        }
+    }
+
     const initials = activeChat.name
         .split(" ")
         .slice(0, 2)
@@ -91,14 +121,22 @@ export function ChatView() {
         <section className="flex-1 flex flex-col h-screen bg-background overflow-hidden select-none">
             {/* Header */}
             <div className="h-16 px-4 border-b border-border bg-card/70 backdrop-blur flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shadow-sm">
+                <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center font-bold text-xs text-primary shadow-sm shrink-0">
                         {initials}
                     </div>
-                    <div>
-                        <h3 className="text-sm font-semibold text-foreground leading-tight">
-                            {activeChat.name}
-                        </h3>
+                    <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                            <h3 className="text-sm font-semibold text-foreground leading-tight truncate">
+                                {activeChat.name}
+                            </h3>
+                            {activeChat.isGroup && (
+                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium shrink-0">
+                                    <LuUsers className="h-3 w-3" />
+                                    Grupo
+                                </span>
+                            )}
+                        </div>
                         <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                             <LuShieldCheck className="h-3 w-3 text-emerald-500" />
                             <span>Signal Protocol • E2EE Rust</span>
@@ -106,7 +144,26 @@ export function ChatView() {
                     </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
+                    {activeChat.isGroup && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            onClick={handleSyncGroup}
+                            disabled={isSyncingGroups}
+                            title="Sincronizar informações e nome do grupo"
+                        >
+                            <LuRefreshCw
+                                className={`h-3.5 w-3.5 ${
+                                    isSyncingGroups ? "animate-spin" : ""
+                                }`}
+                            />
+                            <span className="hidden sm:inline">
+                                Sincronizar Grupo
+                            </span>
+                        </Button>
+                    )}
                     <Button
                         variant="ghost"
                         size="sm"
@@ -200,6 +257,52 @@ export function ChatView() {
                                         : "bg-card border border-border/80 text-foreground rounded-bl-xs"
                                 }`}
                             >
+                                {/* Group Participant Identification Header */}
+                                {activeChat.isGroup &&
+                                    !isFromMe &&
+                                    (() => {
+                                        const senderColor = getSenderColor(
+                                            message.senderJid ||
+                                                message.senderName,
+                                        )
+                                        const displayName =
+                                            message.senderName ||
+                                            formatPhoneNumber(
+                                                message.senderJid,
+                                            ) ||
+                                            "Participante"
+                                        const formattedPhone =
+                                            formatPhoneNumber(message.senderJid)
+                                        const initials =
+                                            getSenderInitials(displayName)
+
+                                        return (
+                                            <div className="flex items-center gap-2 pb-1.5 mb-1 border-b border-border/40">
+                                                <div
+                                                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold border shrink-0 ${senderColor.bg} ${senderColor.text}`}
+                                                >
+                                                    {initials}
+                                                </div>
+                                                <div className="flex items-center gap-1.5 min-w-0">
+                                                    <span
+                                                        className={`font-semibold text-[11px] truncate ${senderColor.text}`}
+                                                    >
+                                                        {displayName}
+                                                    </span>
+                                                    {formattedPhone &&
+                                                        formattedPhone !==
+                                                            displayName && (
+                                                            <span className="text-[10px] text-muted-foreground/80 truncate font-mono">
+                                                                (
+                                                                {formattedPhone}
+                                                                )
+                                                            </span>
+                                                        )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })()}
+
                                 {/* Quoted Reply if any */}
                                 {message.replyTo && (
                                     <div
@@ -218,14 +321,7 @@ export function ChatView() {
                                     </div>
                                 )}
 
-                                {/* Text content */}
-                                {message.text && (
-                                    <p className="whitespace-pre-wrap break-words">
-                                        {message.text}
-                                    </p>
-                                )}
-
-                                {/* Media Attachment with Selective Auto-Download */}
+                                {/* Media Attachment */}
                                 {message.media && (
                                     <MediaMessageCard
                                         media={message.media}
@@ -233,6 +329,13 @@ export function ChatView() {
                                             downloadMedia(message.id)
                                         }
                                     />
+                                )}
+
+                                {/* Text / Caption with WhatsApp Markdown & Clickable Links */}
+                                {message.text && (
+                                    <div className="text-xs leading-relaxed pt-0.5">
+                                        <FormattedText text={message.text} />
+                                    </div>
                                 )}
 
                                 {/* Timestamp & Status Checkmarks */}
@@ -254,6 +357,18 @@ export function ChatView() {
                 })}
                 <div ref={messagesEndRef} />
             </div>
+
+            {/* Media Send Modal with Caption Input & Preview */}
+            <MediaSendModal
+                isOpen={isMediaModalOpen}
+                file={pendingFile}
+                initialCaption={inputText}
+                onClose={() => {
+                    setIsMediaModalOpen(false)
+                    setPendingFile(null)
+                }}
+                onSend={handleSendMediaWithCaption}
+            />
 
             {/* Composer */}
             <div className="p-3 border-t border-border bg-card/80 backdrop-blur shrink-0 relative">
@@ -282,7 +397,7 @@ export function ChatView() {
                         size="icon"
                         onClick={() => fileInputRef.current?.click()}
                         className="h-10 w-10 text-muted-foreground hover:text-foreground shrink-0 rounded-xl hover:bg-muted/60"
-                        title="Anexar arquivo ou foto"
+                        title="Anexar arquivo com legenda"
                     >
                         <LuPaperclip className="h-4 w-4" />
                     </Button>
@@ -307,7 +422,7 @@ export function ChatView() {
                             value={inputText}
                             onChange={(e) => setInputText(e.target.value)}
                             onKeyDown={handleKeyDown}
-                            placeholder="Digite uma mensagem... (Enter para enviar)"
+                            placeholder="Digite uma mensagem... (Markdown: *negrito*, _itálico_, ~tachado~)"
                             rows={1}
                             className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none resize-none max-h-32 font-sans font-emoji"
                         />

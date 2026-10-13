@@ -3,6 +3,7 @@ import {
     LuMessageSquare,
     LuMessageSquarePlus,
     LuQrCode,
+    LuRefreshCw,
     LuSearch,
     LuSettings,
     LuTrash2,
@@ -34,11 +35,22 @@ export function Sidebar({
         activeChat,
         selectChat,
         deleteChat,
+        syncGroups,
     } = useAccount()
 
     const [searchQuery, setSearchQuery] = useState("")
     const [filter, setFilter] = useState<"all" | "unread" | "groups">("all")
     const [isNewChatOpen, setIsNewChatOpen] = useState(false)
+    const [isSyncingGroups, setIsSyncingGroups] = useState(false)
+
+    const handleSyncGroups = async () => {
+        setIsSyncingGroups(true)
+        try {
+            await syncGroups()
+        } finally {
+            setIsSyncingGroups(false)
+        }
+    }
 
     const filteredChats = chats.filter((chat) => {
         const matchesSearch =
@@ -238,6 +250,22 @@ export function Sidebar({
                     >
                         Grupos
                     </Button>
+                    {filter === "groups" && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-full text-muted-foreground hover:text-primary"
+                            onClick={handleSyncGroups}
+                            disabled={isSyncingGroups}
+                            title="Sincronizar Grupos agora"
+                        >
+                            <LuRefreshCw
+                                className={`h-3 w-3 ${
+                                    isSyncingGroups ? "animate-spin" : ""
+                                }`}
+                            />
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -247,15 +275,32 @@ export function Sidebar({
                     <div className="p-8 text-center text-xs text-muted-foreground space-y-3">
                         <LuMessageSquare className="h-8 w-8 mx-auto text-muted-foreground/40" />
                         <p>Nenhuma conversa encontrada</p>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-1.5"
-                            onClick={() => setIsNewChatOpen(true)}
-                        >
-                            <LuMessageSquarePlus className="h-3.5 w-3.5" />
-                            Iniciar Nova Conversa
-                        </Button>
+                        {filter === "groups" ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-primary/30 text-primary hover:bg-primary/10 gap-1.5"
+                                onClick={handleSyncGroups}
+                                disabled={isSyncingGroups}
+                            >
+                                <LuRefreshCw
+                                    className={`h-3.5 w-3.5 ${
+                                        isSyncingGroups ? "animate-spin" : ""
+                                    }`}
+                                />
+                                Sincronizar Grupos
+                            </Button>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 gap-1.5"
+                                onClick={() => setIsNewChatOpen(true)}
+                            >
+                                <LuMessageSquarePlus className="h-3.5 w-3.5" />
+                                Iniciar Nova Conversa
+                            </Button>
+                        )}
                     </div>
                 ) : (
                     filteredChats.map((chat) => {
