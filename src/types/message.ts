@@ -24,6 +24,7 @@ export interface MediaAttachment {
     mediaKey?: string
     fileSha256?: string
     fileEncSha256?: string
+    isViewOnce?: boolean
 }
 
 export interface QuotedMessage {

@@ -43,6 +43,7 @@ interface AccountContextType {
         file: File,
         caption?: string,
         forceMediaType?: MediaType,
+        isViewOnce?: boolean,
     ) => Promise<void>
     downloadMedia: (messageId: string) => Promise<void>
     refreshStorageStats: () => Promise<void>
@@ -451,8 +452,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 }
                 return [chat, ...prev]
             })
-            setActiveChat(chat)
-            setMessages([])
+            await selectChat(chat)
             return chat
         } catch (error) {
             console.error("Erro ao iniciar conversa:", error)
@@ -465,6 +465,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
         file: File,
         caption?: string,
         forceMediaType?: MediaType,
+        isViewOnce?: boolean,
     ) => {
         if (!activeAccount || !activeChat) return
 
@@ -490,6 +491,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 file.name,
                 base64Data,
                 caption,
+                isViewOnce,
             )
 
             setMessages((prev) => {

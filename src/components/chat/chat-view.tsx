@@ -1,16 +1,31 @@
 import {
     LuCheckCheck,
+    LuEllipsisVertical,
     LuEraser,
+    LuEyeOff,
+    LuHistory,
+    LuMic,
     LuPaperclip,
     LuRefreshCw,
+    LuReply,
     LuSend,
     LuShieldCheck,
     LuSmile,
     LuTrash2,
     LuUsers,
+    LuX,
 } from "react-icons/lu"
 import { useCallback, useEffect, useRef, useState, KeyboardEvent } from "react"
+import { convertFileSrc } from "@tauri-apps/api/core"
+import { toast } from "sonner"
 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from "../ui/dropdown-menu"
 import { formatPhoneNumber, getSenderColor } from "../../lib/format-sender"
 import { WhatsAppService } from "../../services/whatsapp-service"
 import { EmojiStickerPicker } from "./emoji-sticker-picker"
@@ -22,6 +37,7 @@ import { MessageInfoModal } from "./message-info-modal"
 import { MediaSendModal } from "./media-send-modal"
 import { FormattedText } from "./formatted-text"
 import { ChatAvatar } from "./chat-avatar"
+import { Spinner } from "../ui/spinner"
 import { Message } from "../../types"
 import { Button } from "../ui/button"
 
@@ -85,6 +101,7 @@ export function ChatView() {
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
     const [isSyncingGroups, setIsSyncingGroups] = useState(false)
     const [isGroupMembersOpen, setIsGroupMembersOpen] = useState(false)
+    const [replyingMessage, setReplyingMessage] = useState<Message | null>(null)
 
     // Context menu
     const [contextMenu, setContextMenu] = useState<{
@@ -96,6 +113,19 @@ export function ChatView() {
 
     // Message info modal
     const [infoMessage, setInfoMessage] = useState<Message | null>(null)
+
+    // Voice recording state
+    const [isRecording, setIsRecording] = useState(false)
+    const [recordingDuration, setRecordingDuration] = useState(0)
+    const [isProcessingAudio, setIsProcessingAudio] = useState(false)
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+    const audioChunksRef = useRef<Blob[]>([])
+    const recordingTimerRef = useRef<number | null>(null)
+
+    // Revealed revoked messages (messageId set that user clicked to reveal)
+    const [revealedRevokedMessages, setRevealedRevokedMessages] = useState<
+        Record<string, boolean>
+    >({})
 
     // Reactions map: messageId -> list of emoji strings added locally
     const [reactions, setReactions] = useState<ReactionsMap>({})
@@ -158,8 +188,10 @@ export function ChatView() {
     const handleSend = async () => {
         if (!inputText.trim()) return
         const text = inputText
+        const replyId = replyingMessage?.id
         setInputText("")
-        await sendMessage(text)
+        setReplyingMessage(null)
+        await sendMessage(text, replyId)
     }
 
     const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -177,10 +209,193 @@ export function ChatView() {
         e.target.value = ""
     }
 
-    const handleSendMediaWithCaption = async (file: File, caption?: string) => {
-        await sendMedia(file, caption)
+    const startRecording = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+            })
+            const mimeType = MediaRecorder.isTypeSupported(
+                "audio/webm;codecs=opus",
+            )
+                ? "audio/webm;codecs=opus"
+                : MediaRecorder.isTypeSupported("audio/ogg;codecs=opus")
+                  ? "audio/ogg;codecs=opus"
+                  : "audio/webm"
+
+            const recorder = new MediaRecorder(stream, { mimeType })
+            audioChunksRef.current = []
+
+            recorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) {
+                    audioChunksRef.current.push(e.data)
+                }
+            }
+
+            recorder.start(100)
+            mediaRecorderRef.current = recorder
+            setIsRecording(true)
+            setRecordingDuration(0)
+
+            if (recordingTimerRef.current)
+                clearInterval(recordingTimerRef.current)
+            recordingTimerRef.current = window.setInterval(() => {
+                setRecordingDuration((prev) => prev + 1)
+            }, 1000)
+        } catch (err) {
+            console.error("Erro ao acessar microfone:", err)
+            toast.error("Não foi possível acessar o microfone para gravação.")
+        }
+    }
+
+    const cancelRecording = () => {
+        if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current)
+            recordingTimerRef.current = null
+        }
+        if (mediaRecorderRef.current) {
+            try {
+                mediaRecorderRef.current.stream
+                    .getTracks()
+                    .forEach((t) => t.stop())
+                mediaRecorderRef.current.stop()
+            } catch {
+                // ignore
+            }
+            mediaRecorderRef.current = null
+        }
+        audioChunksRef.current = []
+        setIsRecording(false)
+        setRecordingDuration(0)
+    }
+
+    const stopAndSendRecording = async () => {
+        if (!mediaRecorderRef.current) return
+
+        if (recordingTimerRef.current) {
+            clearInterval(recordingTimerRef.current)
+            recordingTimerRef.current = null
+        }
+
+        const recorder = mediaRecorderRef.current
+        setIsProcessingAudio(true)
+
+        recorder.onstop = async () => {
+            try {
+                recorder.stream.getTracks().forEach((t) => t.stop())
+                const audioBlob = new Blob(audioChunksRef.current, {
+                    type: recorder.mimeType || "audio/ogg",
+                })
+
+                if (audioBlob.size === 0) {
+                    toast.error("Áudio gravado está vazio.")
+                    return
+                }
+
+                const ext = recorder.mimeType.includes("ogg") ? "ogg" : "webm"
+                const audioFile = new File(
+                    [audioBlob],
+                    `voice_note_${Date.now()}.${ext}`,
+                    { type: recorder.mimeType || "audio/ogg" },
+                )
+
+                await sendMedia(audioFile, undefined, "voice")
+                toast.success("Mensagem de voz enviada!")
+            } catch (err) {
+                console.error("Erro ao processar áudio gravado:", err)
+                toast.error("Falha ao enviar mensagem de voz.")
+            } finally {
+                setIsRecording(false)
+                setIsProcessingAudio(false)
+                setRecordingDuration(0)
+                mediaRecorderRef.current = null
+                audioChunksRef.current = []
+            }
+        }
+
+        try {
+            recorder.stop()
+        } catch (err) {
+            console.error("Erro ao parar gravador:", err)
+            cancelRecording()
+            setIsProcessingAudio(false)
+        }
+    }
+
+    const handleSendMediaWithCaption = async (
+        file: File,
+        caption?: string,
+        isViewOnce?: boolean,
+    ) => {
+        await sendMedia(file, caption, undefined, isViewOnce)
         if (caption && caption === inputText) {
             setInputText("")
+        }
+    }
+
+    const handleConvertToSticker = async (message: Message) => {
+        if (!message.media || message.media.mediaType !== "image") return
+
+        try {
+            toast.loading("Criando figurinha a partir da imagem...", {
+                id: "create-sticker",
+            })
+
+            // Obtém URL da imagem (local convertida para asset ou thumbnail)
+            let src = ""
+            if (message.media.localPath) {
+                src = convertFileSrc(message.media.localPath)
+            } else if (message.media.thumbnailDataUrl) {
+                src = message.media.thumbnailDataUrl
+            } else {
+                toast.error("Baixe a foto antes de converter em figurinha.", {
+                    id: "create-sticker",
+                })
+                return
+            }
+
+            const img = new Image()
+            img.crossOrigin = "anonymous"
+            await new Promise<void>((resolve, reject) => {
+                img.onload = () => resolve()
+                img.onerror = reject
+                img.src = src
+            })
+
+            const canvas = document.createElement("canvas")
+            canvas.width = 512
+            canvas.height = 512
+            const ctx = canvas.getContext("2d")
+            if (!ctx) throw new Error("Canvas context not available")
+
+            ctx.clearRect(0, 0, 512, 512)
+
+            const scale = Math.min(512 / img.width, 512 / img.height)
+            const w = img.width * scale
+            const h = img.height * scale
+            const x = (512 - w) / 2
+            const y = (512 - h) / 2
+
+            ctx.drawImage(img, x, y, w, h)
+
+            const blob = await new Promise<Blob | null>((resolve) => {
+                canvas.toBlob((b) => resolve(b), "image/webp", 0.85)
+            })
+
+            if (!blob) throw new Error("Falha ao gerar WebP")
+
+            const file = new File([blob], `sticker_${Date.now()}.webp`, {
+                type: "image/webp",
+            })
+
+            await sendMedia(file, undefined, "sticker")
+            toast.success("Figurinha enviada com sucesso!", {
+                id: "create-sticker",
+            })
+        } catch (err) {
+            console.error("Erro ao converter figurinha:", err)
+            toast.error("Erro ao criar figurinha a partir da imagem.", {
+                id: "create-sticker",
+            })
         }
     }
 
@@ -257,60 +472,75 @@ export function ChatView() {
 
                 <div className="flex items-center gap-1 shrink-0">
                     {activeChat.isGroup && (
-                        <>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-                                onClick={() => setIsGroupMembersOpen(true)}
-                                title="Ver membros e opções do grupo"
-                            >
-                                <LuUsers className="h-3.5 w-3.5" />
-                                <span className="hidden sm:inline">
-                                    Membros
-                                </span>
-                            </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 text-xs gap-1.5 border-primary/30 text-primary hover:bg-primary/10 mr-1"
+                            onClick={() => setIsGroupMembersOpen(true)}
+                            title="Ver membros e opções do grupo"
+                        >
+                            <LuUsers className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">Membros</span>
+                        </Button>
+                    )}
+
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                             <Button
                                 variant="ghost"
-                                size="sm"
-                                className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                                onClick={handleSyncGroup}
-                                disabled={isSyncingGroups}
-                                title="Sincronizar informações e nome do grupo"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-foreground rounded-lg"
+                                title="Mais opções da conversa"
                             >
-                                <LuRefreshCw
-                                    className={`h-3.5 w-3.5 ${
-                                        isSyncingGroups ? "animate-spin" : ""
-                                    }`}
-                                />
-                                <span className="hidden sm:inline">
-                                    Sincronizar
-                                </span>
+                                <LuEllipsisVertical className="h-4 w-4" />
                             </Button>
-                        </>
-                    )}
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10"
-                        onClick={handleClearMessages}
-                        title="Limpar todas as mensagens desta conversa"
-                    >
-                        <LuEraser className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">
-                            Limpar Conversa
-                        </span>
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 text-xs gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                        onClick={handleDeleteChat}
-                        title="Excluir esta conversa"
-                    >
-                        <LuTrash2 className="h-3.5 w-3.5" />
-                        <span className="hidden sm:inline">Excluir Chat</span>
-                    </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                            {activeChat.isGroup && (
+                                <>
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            setIsGroupMembersOpen(true)
+                                        }
+                                        className="gap-2 text-xs cursor-pointer"
+                                    >
+                                        <LuUsers className="h-3.5 w-3.5 text-primary" />
+                                        <span>Dados do grupo</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem
+                                        onClick={handleSyncGroup}
+                                        disabled={isSyncingGroups}
+                                        className="gap-2 text-xs cursor-pointer"
+                                    >
+                                        <LuRefreshCw
+                                            className={`h-3.5 w-3.5 text-muted-foreground ${
+                                                isSyncingGroups
+                                                    ? "animate-spin"
+                                                    : ""
+                                            }`}
+                                        />
+                                        <span>Sincronizar grupo</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            )}
+                            <DropdownMenuItem
+                                onClick={handleClearMessages}
+                                className="gap-2 text-xs text-amber-500 focus:text-amber-500 cursor-pointer"
+                            >
+                                <LuEraser className="h-3.5 w-3.5" />
+                                <span>Limpar conversa</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                                onClick={handleDeleteChat}
+                                variant="destructive"
+                                className="gap-2 text-xs cursor-pointer"
+                            >
+                                <LuTrash2 className="h-3.5 w-3.5" />
+                                <span>Excluir chat</span>
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
                 </div>
             </div>
 
@@ -443,6 +673,49 @@ export function ChatView() {
                         )
                     }
 
+                    const isRevoked = Boolean(
+                        message.text &&
+                        (message.text.includes("Esta mensagem foi apagada") ||
+                            message.text.includes("Mensagem revogada") ||
+                            message.text.includes("This message was deleted")),
+                    )
+                    const isRevealed = Boolean(
+                        revealedRevokedMessages[message.id],
+                    )
+
+                    if (isRevoked && !isRevealed) {
+                        return (
+                            <div
+                                key={message.id}
+                                className={`flex ${
+                                    isFromMe ? "justify-end" : "justify-start"
+                                } my-1.5`}
+                            >
+                                <div
+                                    onClick={() =>
+                                        setRevealedRevokedMessages((prev) => ({
+                                            ...prev,
+                                            [message.id]: true,
+                                        }))
+                                    }
+                                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted/60 border border-border/80 text-muted-foreground text-xs hover:bg-muted/90 hover:text-foreground transition-all cursor-pointer shadow-xs group"
+                                    title="Clique para visualizar o registro sob demanda"
+                                >
+                                    <LuEyeOff className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                                    <span className="italic text-[11px]">
+                                        Mensagem apagada
+                                    </span>
+                                    <span className="text-[10px] text-muted-foreground/60 font-mono">
+                                        {timeFormatted}
+                                    </span>
+                                    <span className="text-[10px] text-primary underline underline-offset-2 ml-1 font-medium">
+                                        Ver
+                                    </span>
+                                </div>
+                            </div>
+                        )
+                    }
+
                     const msgReactions = reactions[message.id] ?? []
                     return (
                         <div
@@ -451,6 +724,25 @@ export function ChatView() {
                                 isFromMe ? "items-end" : "items-start"
                             } ${isSameSender ? "mt-1" : "mt-3.5"}`}
                         >
+                            {isRevoked && isRevealed && (
+                                <div className="flex items-center gap-1.5 px-2 mb-0.5 text-[10px] text-amber-500 font-medium">
+                                    <LuHistory className="w-3 h-3" />
+                                    <span>Mensagem apagada pelo autor</span>
+                                    <button
+                                        onClick={() =>
+                                            setRevealedRevokedMessages(
+                                                (prev) => ({
+                                                    ...prev,
+                                                    [message.id]: false,
+                                                }),
+                                            )
+                                        }
+                                        className="text-muted-foreground hover:text-foreground underline ml-1 cursor-pointer"
+                                    >
+                                        Ocultar
+                                    </button>
+                                </div>
+                            )}
                             <div
                                 onContextMenu={(e) =>
                                     openContextMenu(e, message)
@@ -514,6 +806,14 @@ export function ChatView() {
                                         onDownload={() =>
                                             downloadMedia(message.id)
                                         }
+                                        onConvertToSticker={
+                                            message.media.mediaType === "image"
+                                                ? () =>
+                                                      handleConvertToSticker(
+                                                          message,
+                                                      )
+                                                : undefined
+                                        }
                                     />
                                 )}
 
@@ -569,6 +869,7 @@ export function ChatView() {
                 x={contextMenu.x}
                 y={contextMenu.y}
                 hasText={Boolean(contextMenu.message?.text)}
+                isImage={contextMenu.message?.media?.mediaType === "image"}
                 onClose={() =>
                     setContextMenu((prev) => ({ ...prev, isOpen: false }))
                 }
@@ -580,6 +881,16 @@ export function ChatView() {
                     }
                 }}
                 onViewInfo={() => setInfoMessage(contextMenu.message)}
+                onConvertToSticker={() => {
+                    if (contextMenu.message) {
+                        handleConvertToSticker(contextMenu.message)
+                    }
+                }}
+                onReply={() => {
+                    if (contextMenu.message) {
+                        setReplyingMessage(contextMenu.message)
+                    }
+                }}
                 onReact={(emoji) => {
                     if (contextMenu.message) {
                         handleReact(contextMenu.message.id, emoji)
@@ -633,59 +944,171 @@ export function ChatView() {
                     }}
                 />
 
-                <div className="flex items-end gap-2 max-w-4xl mx-auto">
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
-                    />
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="h-10 w-10 text-muted-foreground hover:text-foreground shrink-0 rounded-xl hover:bg-muted/60"
-                        title="Anexar arquivo com legenda"
-                    >
-                        <LuPaperclip className="h-4 w-4" />
-                    </Button>
-
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        type="button"
-                        onClick={() => setIsPickerOpen((prev) => !prev)}
-                        className={`h-10 w-10 shrink-0 rounded-xl transition-colors ${
-                            isPickerOpen
-                                ? "text-amber-500 bg-amber-500/15"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-                        }`}
-                        title="Emojis e Figurinhas"
-                    >
-                        <LuSmile className="h-5 w-5" />
-                    </Button>
-
-                    <div className="flex-1 min-h-[40px] max-h-36 bg-muted/60 border border-input rounded-2xl px-3.5 py-2 flex items-center focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
-                        <textarea
-                            value={inputText}
-                            onChange={(e) => setInputText(e.target.value)}
-                            onKeyDown={handleKeyDown}
-                            placeholder="Digite uma mensagem..."
-                            rows={1}
-                            className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none resize-none max-h-32 font-sans font-emoji"
-                        />
+                {/* Quoted Message Reply Banner */}
+                {replyingMessage && (
+                    <div className="max-w-4xl mx-auto mb-2 flex items-center justify-between gap-3 bg-muted/80 border-l-4 border-primary rounded-r-xl px-3 py-1.5 animate-in fade-in slide-in-from-bottom-1 duration-150 shadow-xs">
+                        <div className="flex items-center gap-2 min-w-0">
+                            <LuReply className="w-4 h-4 text-primary shrink-0" />
+                            <div className="min-w-0 text-xs">
+                                <span className="font-semibold text-primary block truncate text-[11px]">
+                                    Respondendo a{" "}
+                                    {replyingMessage.fromMe
+                                        ? "Você"
+                                        : replyingMessage.senderName ||
+                                          formatPhoneNumber(
+                                              replyingMessage.senderJid,
+                                          ) ||
+                                          "Participante"}
+                                </span>
+                                <span className="text-muted-foreground truncate block text-[11px]">
+                                    {replyingMessage.text ||
+                                        (replyingMessage.media
+                                            ? `[${
+                                                  replyingMessage.media
+                                                      .mediaType === "image"
+                                                      ? "Foto"
+                                                      : replyingMessage.media
+                                                              .mediaType ===
+                                                          "video"
+                                                        ? "Vídeo"
+                                                        : replyingMessage.media
+                                                                .mediaType ===
+                                                            "sticker"
+                                                          ? "Figurinha"
+                                                          : "Mídia"
+                                              }]`
+                                            : "Mensagem")}
+                                </span>
+                            </div>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground shrink-0"
+                            onClick={() => setReplyingMessage(null)}
+                            title="Cancelar resposta"
+                        >
+                            <LuX className="h-3.5 w-3.5" />
+                        </Button>
                     </div>
+                )}
 
-                    <Button
-                        size="icon"
-                        onClick={handleSend}
-                        disabled={!inputText.trim()}
-                        className="h-10 w-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow-sm"
-                        title="Enviar mensagem"
-                    >
-                        <LuSend className="h-4 w-4" />
-                    </Button>
+                <div className="flex items-end gap-2 max-w-4xl mx-auto">
+                    {isRecording ? (
+                        <div className="flex-1 flex items-center justify-between gap-3 bg-destructive/10 border border-destructive/30 rounded-2xl px-4 py-2 animate-in fade-in duration-200">
+                            <div className="flex items-center gap-2.5">
+                                <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shrink-0" />
+                                <span className="text-xs font-semibold text-destructive">
+                                    Gravando áudio...
+                                </span>
+                                <span className="text-xs font-mono font-medium text-foreground bg-background/80 px-2 py-0.5 rounded-md border border-border/50">
+                                    {Math.floor(recordingDuration / 60)
+                                        .toString()
+                                        .padStart(2, "0")}
+                                    :
+                                    {(recordingDuration % 60)
+                                        .toString()
+                                        .padStart(2, "0")}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={cancelRecording}
+                                    disabled={isProcessingAudio}
+                                    className="h-8 px-2 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg gap-1"
+                                    title="Cancelar gravação"
+                                >
+                                    <LuX className="h-4 w-4" />
+                                    <span>Cancelar</span>
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={stopAndSendRecording}
+                                    disabled={isProcessingAudio}
+                                    className="h-8 px-3 text-xs bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg gap-1.5 shadow-sm"
+                                    title="Enviar áudio gravado"
+                                >
+                                    {isProcessingAudio ? (
+                                        <Spinner className="size-3.5" />
+                                    ) : (
+                                        <LuSend className="h-3.5 w-3.5" />
+                                    )}
+                                    <span>Enviar</span>
+                                </Button>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.txt,.zip"
+                            />
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="h-10 w-10 text-muted-foreground hover:text-foreground shrink-0 rounded-xl hover:bg-muted/60"
+                                title="Anexar arquivo com legenda"
+                            >
+                                <LuPaperclip className="h-4 w-4" />
+                            </Button>
+
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                onClick={() => setIsPickerOpen((prev) => !prev)}
+                                className={`h-10 w-10 shrink-0 rounded-xl transition-colors ${
+                                    isPickerOpen
+                                        ? "text-amber-500 bg-amber-500/15"
+                                        : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                                }`}
+                                title="Emojis e Figurinhas"
+                            >
+                                <LuSmile className="h-5 w-5" />
+                            </Button>
+
+                            <div className="flex-1 min-h-[40px] max-h-36 bg-muted/60 border border-input rounded-2xl px-3.5 py-2 flex items-center focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+                                <textarea
+                                    value={inputText}
+                                    onChange={(e) =>
+                                        setInputText(e.target.value)
+                                    }
+                                    onKeyDown={handleKeyDown}
+                                    placeholder="Digite uma mensagem..."
+                                    rows={1}
+                                    className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none resize-none max-h-32 font-sans"
+                                />
+                            </div>
+
+                            {inputText.trim() ? (
+                                <Button
+                                    size="icon"
+                                    onClick={handleSend}
+                                    className="h-10 w-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 shadow-sm"
+                                    title="Enviar mensagem"
+                                >
+                                    <LuSend className="h-4 w-4" />
+                                </Button>
+                            ) : (
+                                <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={startRecording}
+                                    className="h-10 w-10 rounded-xl border-emerald-500/30 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 shrink-0 shadow-sm"
+                                    title="Gravar mensagem de voz"
+                                >
+                                    <LuMic className="h-5 w-5" />
+                                </Button>
+                            )}
+                        </>
+                    )}
                 </div>
             </div>
         </section>

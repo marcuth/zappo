@@ -87,16 +87,16 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [x] **Agrupamento de Mensagens:** Agrupar mensagens sequenciais do mesmo autor na conversa, evitando repetição desnecessária de nome, foto e número.
 - [x] **Compactação de Mensagens Longas:** Implementar recolhimento com botão "Ler mais..." para mensagens com textos muito extensos.
 - [x] **Mensagens Fantasmas:** Corrigir anomalia de mensagens fantasmas ou duplicadas em conversas em grupo.
-- [ ] **Desduplicação ao Iniciar Nova Conversa:** Evitar duplicar ou recriar a conversa na barra lateral ao iniciar chat com um número com o qual o usuário já possui histórico prévio, redirecionando automaticamente para a conversa existente.
-- [ ] **Menu Compacto ("...") no Topo da Conversa:** Adicionar menu dropdown com ícone de reticências verticais (`...`) no cabeçalho do chat ativo para agrupar e limpar os botões de ações rápidas superiores (limpar conversa, excluir chat, informações, etc.).
+- [x] **Desduplicação ao Iniciar Nova Conversa:** Evitar duplicar ou recriar a conversa na barra lateral ao iniciar chat com um número com o qual o usuário já possui histórico prévio, redirecionando automaticamente para a conversa existente.
+- [x] **Menu Compacto ("...") no Topo da Conversa:** Adicionar menu dropdown com ícone de reticências verticais (`...`) no cabeçalho do chat ativo para agrupar e limpar os botões de ações rápidas superiores (limpar conversa, excluir chat, informações, etc.).
 - [ ] **Efeito Sonoro de Notificação:** Tocar alerta sonoro agradável e discreto ao receber novas mensagens na conversa em segundo plano ou em primeiro plano.
 - [ ] **Notificações de Sistema no Chat:** Exibir mensagens de sistema contextuais na timeline da conversa (ex: entrada/saída de membros, adições ao grupo, alterações de assunto ou permissões).
-- [ ] **Tratamento e Ocultação de Mensagens Revogadas (Apagadas):**
+- [x] **Tratamento e Ocultação de Mensagens Revogadas (Apagadas):**
     - Ocultar automaticamente mensagens revogadas da timeline com opção de visualizá-las sob demanda mediante clique.
     - Adicionar configuração nas preferências (ativa por padrão) para purgar permanentemente mensagens revogadas do banco de dados SQLite e apagar mídias em cache local.
-- [ ] **Envio de Mensagens com Visualização Única (_View Once_):** Suporte ao envio de mídias temporárias efêmeras para fotos, vídeos e áudios gravados.
-- [ ] **Gravação e Envio de Mensagens de Voz:** Implementar gravador de áudio integrado com microfone no rodapé da conversa para envio direto de notas de voz.
-- [ ] **Validação do Envio de Reações aos Servidores:** Diagnosticar e garantir que as reações com emojis disparadas no cliente sejam confirmadas e sincronizadas remotamente junto aos servidores do WhatsApp.
+- [x] **Envio de Mensagens com Visualização Única (_View Once_):** Suporte ao envio de mídias temporárias efêmeras para fotos e vídeos, exibição de badge `① Visualização única` e alternador no rodapé de envio.
+- [x] **Gravação e Envio de Mensagens de Voz:** Implementar gravador de áudio integrado com microfone no rodapé da conversa para envio direto de notas de voz.
+- [x] **Validação do Envio de Reações aos Servidores:** Diagnosticar e garantir que as reações com emojis disparadas no cliente sejam confirmadas e sincronizadas remotamente junto aos servidores do WhatsApp.
 - [ ] **Gerenciamento e Edição de Mensagens:** Permitir exclusão (para mim e para todos), edição de mensagens enviadas e moderação de mensagens por administradores.
 - [x] **Formatação & Links:** Suporte completo à formatação Markdown do WhatsApp (_negrito_, _itálico_, ~tachado~, `código`) e detecção de links clicáveis.
 - [ ] **Prévia de Links:** Buscar e exibir metadados ricos (título, descrição e imagem de capa) ao compartilhar links.
@@ -104,6 +104,7 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [ ] **Canais de Transmissão:** Permitir acompanhamento e visualização de mensagens em canais oficiais.
 - [ ] **Sincronização de Limpeza:** Aprimorar a sincronização ao limpar e excluir conversas junto aos servidores do WhatsApp.
 - [x] **Reações a Mensagens:** Permitir adicionar e visualizar reações com emojis nas mensagens recebidas e enviadas.
+- [ ] **Recebimento e Exibição de Reações de Outros Participantes:** Capturar eventos remotos de reação (`ReactionMessage`) vindos do WhatsApp, persistir e atualizar em tempo real os badges de emojis recebidos nas mensagens do chat (com identificador de quem reagiu).
 - [x] **Expansão de Emojis:** Adicionar mais emojis ao acervo do seletor abrangendo animais, comidas, atividades e símbolos adicionais.
 - [x] **Ver dados da mensagem:** Visualizar metadados técnicos de uma mensagem (ID, JID, timestamp, status, campos de criptografia).
 
@@ -113,7 +114,7 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [x] **Membros do Grupo:** Visualizar a lista detalhada de participantes e administradores do grupo.
 - [x] **Adicionar Participantes:** Adicionar membros ao grupo, inclusive pessoas que não estejam salvas na agenda (diretamente pelo número).
 - [x] **Sair de Grupos:** Adicionar opções para sair de grupos e silenciar notificações.
-- [ ] **Abertura de Membros pelo Cabeçalho:** Exibir o modal detalhado de membros e dados do grupo ao clicar no nome ou avatar do grupo no topo da conversa.
+- [x] **Abertura de Membros pelo Cabeçalho:** Exibir o modal detalhado de membros e dados do grupo ao clicar no nome ou avatar do grupo no topo da conversa.
 - [ ] **Modal de Dados do Contato:** Visualizar cartão detalhado de informações do contato (foto em alta resolução, recado/status, telefone formatado, JID e botão de conversa rápida) ao clicar no nome do usuário no topo de uma conversa direta.
 - [ ] **Formatação e Exibição Completa de Telefones nas Conversas:** Garantir a formatação internacional padronizada (+55 (XX) XXXXX-XXXX) de todos os números de telefone exibidos e corrigir locais onde o número de telefone de participantes está ausente ou oculto (especialmente no cabeçalho de mensagens em grupos, figurinhas e detalhes da conversa).
 - [ ] **Formatação e Nomes na Lista de Participantes:** Formatar números de telefone no padrão internacional amigável e exibir nomes de exibição/push name recuperados do WhatsApp para todos os membros disponíveis.
@@ -124,13 +125,17 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 
 ### 🖼️ Mídias, Figurinhas e Documentos
 
-- [ ] **Criar Figurinha a partir de Imagem do Chat:** Adicionar botão de ação rápida ("Criar Figurinha") no menu de contexto de qualquer imagem recebida ou enviada na conversa, convertendo-a automaticamente para sticker WebP com fundo transparente e proporções adequadas.
+- [x] **Criar Figurinha a partir de Imagem do Chat:** Adicionar botão de ação rápida ("Criar Figurinha") no menu de contexto de qualquer imagem recebida ou enviada na conversa, convertendo-a automaticamente para sticker WebP com fundo transparente e proporções adequadas.
 - [x] **Legendas em Anexos:** Adicionar suporte à inclusão de legendas personalizadas em fotos, vídeos e documentos.
 - [x] **Visualizador de Imagens (Lightbox):** Permitir clicar na imagem para expandi-la em tela cheia com zoom e navegação.
+- [ ] **Navegação Entre Mídias no Visualizador:** Permitir navegar sequencialmente entre mídias anteriores e posteriores da conversa (fotos, vídeos, documentos e áudios) diretamente pelo modal do visualizador de mídia ao abrir qualquer anexo em um grupo ou conversa individual.
 - [x] **Download e Salvamento de Imagens:** Corrigir a ação de baixar imagem para abrir o diálogo nativo do sistema operacional ("Salvar como") escolhendo o destino do arquivo, em vez de redirecionar para a página/URL da imagem.
-- [ ] **Editor de Imagens:** Ferramentas básicas de edição antes do envio (recorte, rabisco/desenho livre e inserção de textos).
+- [x] **Editor de Imagens:** Ferramentas integradas de edição antes do envio de fotos (rotação de 90° em passos horários e anti-horários, filtros de imagem P&B, Sépia, Vintage e Normal, ajustes deslizantes de brilho e contraste, além de enquadramento 1:1, 4:5 ou original).
 - [x] **Visualizador de PDF:** Prévia e leitura integrada de documentos PDF diretamente no aplicativo.
 - [x] **Pesquisa de Emojis:** Corrigir busca e filtragem no seletor de emojis.
+- [ ] **Consertar Envio de Mensagens de Voz:** Diagnosticar e corrigir o envio de notas de voz gravadas pelo microfone, garantindo correta conversão de formato/codec de áudio (Opus/OGG) e compatibilidade com os servidores do WhatsApp.
+- [ ] **Balão de Áudio Personalizado:** Substituir o player de áudio nativo padrão por um componente de reprodução estilizado e integrado ao design do aplicativo, contendo barra de progresso em formato de onda/waveform, controle de velocidade (1x, 1.5x, 2x), botão play/pause e duração decorrida/total.
+- [ ] **Correção da Abertura do Modal de Emojis ao Reagir:** Corrigir a abertura do seletor/modal completo de emojis acionado pelo botão `+` na barra de reações rápidas sobre as mensagens.
 - [x] **Identificação em Envio de Figurinhas:** Exibir o cabeçalho/nome do autor ao enviar figurinhas isoladas em grupos (quando não houver mensagem anterior dele).
 - [ ] **Figurinhas Favoritas:** Sincronizar figurinhas favoritas da conta e permitir favoritar novas figurinhas recebidas.
 - [ ] **Criação de Figurinhas por Vídeo:** Criar figurinhas animadas a partir de trechos de vídeo ou GIFs.

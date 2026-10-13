@@ -1,4 +1,11 @@
-import { LuCopy, LuInfo, LuSmile, LuX } from "react-icons/lu"
+import {
+    LuCopy,
+    LuInfo,
+    LuReply,
+    LuSmile,
+    LuSparkles,
+    LuX,
+} from "react-icons/lu"
 import { useEffect, useRef, useState } from "react"
 
 interface MessageContextMenuProps {
@@ -6,10 +13,13 @@ interface MessageContextMenuProps {
     x: number
     y: number
     hasText: boolean
+    isImage?: boolean
     onClose: () => void
     onCopyText: () => void
     onViewInfo: () => void
     onReact: (emoji: string) => void
+    onConvertToSticker?: () => void
+    onReply?: () => void
 }
 
 // Emojis rápidos de reação (os mais comuns no WhatsApp)
@@ -20,10 +30,13 @@ export function MessageContextMenu({
     x,
     y,
     hasText,
+    isImage,
     onClose,
     onCopyText,
     onViewInfo,
     onReact,
+    onConvertToSticker,
+    onReply,
 }: MessageContextMenuProps) {
     const menuRef = useRef<HTMLDivElement>(null)
     const [adjustedPos, setAdjustedPos] = useState({ x, y })
@@ -73,7 +86,7 @@ export function MessageContextMenu({
             style={{ left: adjustedPos.x, top: adjustedPos.y }}
             onMouseDown={(e) => e.stopPropagation()}
         >
-            <div className="bg-card border border-border/80 rounded-2xl shadow-2xl shadow-black/30 overflow-hidden min-w-[180px] backdrop-blur">
+            <div className="bg-card border border-border/80 rounded-2xl shadow-2xl shadow-black/30 overflow-hidden min-w-[190px] backdrop-blur">
                 {/* Quick reactions row */}
                 <div className="flex items-center gap-0.5 px-2.5 py-2.5 border-b border-border/60 bg-muted/30">
                     {QUICK_REACTION_EMOJIS.map((emoji) => (
@@ -103,6 +116,30 @@ export function MessageContextMenu({
 
                 {/* Actions */}
                 <div className="py-1">
+                    {onReply && (
+                        <button
+                            onClick={() => {
+                                onReply()
+                                onClose()
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-foreground hover:bg-muted/60 transition-colors cursor-pointer"
+                        >
+                            <LuReply className="w-3.5 h-3.5 text-primary" />
+                            <span>Responder</span>
+                        </button>
+                    )}
+                    {isImage && onConvertToSticker && (
+                        <button
+                            onClick={() => {
+                                onConvertToSticker()
+                                onClose()
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                        >
+                            <LuSparkles className="w-3.5 h-3.5 text-emerald-500" />
+                            <span>Criar Figurinha</span>
+                        </button>
+                    )}
                     {hasText && (
                         <button
                             onClick={() => {

@@ -573,6 +573,7 @@ impl SessionManager {
                             media_key: to_b64(&img.media_key),
                             file_sha256: to_b64(&img.file_sha256),
                             file_enc_sha256: to_b64(&img.file_enc_sha256),
+                            is_view_once: img.view_once,
                         });
                     }
                     // 2. Figurinhas (Stickers - sempre baixadas para renderizar direto)
@@ -607,6 +608,7 @@ impl SessionManager {
                             media_key: to_b64(&stk.media_key),
                             file_sha256: to_b64(&stk.file_sha256),
                             file_enc_sha256: to_b64(&stk.file_enc_sha256),
+                            is_view_once: None,
                         });
                     }
                     // 3. Vídeos
@@ -655,6 +657,7 @@ impl SessionManager {
                             media_key: to_b64(&vid.media_key),
                             file_sha256: to_b64(&vid.file_sha256),
                             file_enc_sha256: to_b64(&vid.file_enc_sha256),
+                            is_view_once: vid.view_once,
                         });
                     }
                     // 4. Áudio / Mensagem de Voz
@@ -705,6 +708,7 @@ impl SessionManager {
                             media_key: to_b64(&aud.media_key),
                             file_sha256: to_b64(&aud.file_sha256),
                             file_enc_sha256: to_b64(&aud.file_enc_sha256),
+                            is_view_once: None,
                         });
                     }
                     // 5. Documentos
@@ -750,6 +754,7 @@ impl SessionManager {
                             media_key: to_b64(&doc.media_key),
                             file_sha256: to_b64(&doc.file_sha256),
                             file_enc_sha256: to_b64(&doc.file_enc_sha256),
+                            is_view_once: None,
                         });
                     }
 
@@ -975,7 +980,7 @@ impl SessionManager {
         account_id: &str,
         chat_jid: &str,
         text: &str,
-        _reply_to_id: Option<String>,
+        reply_to_id: Option<String>,
     ) -> Result<Message, String> {
         let mut real_msg_id = None;
         let client_opt = self.active_client.lock().await.clone();
@@ -993,6 +998,33 @@ impl SessionManager {
         let msg_id =
             real_msg_id.unwrap_or_else(|| format!("msg_{}_{}", now, uuid::Uuid::new_v4().simple()));
 
+        // Resolve mensagem respondida se informada
+        let reply_to = if let Some(ref r_id) = reply_to_id {
+            let existing_msgs = self.storage.load_messages(account_id, chat_jid);
+            existing_msgs.into_iter().find(|m| &m.id == r_id).map(|m| {
+                let r_text = m.text.unwrap_or_else(|| {
+                    if let Some(med) = m.media {
+                        match med.media_type.as_str() {
+                            "image" => "📷 Foto".to_string(),
+                            "video" => "📹 Vídeo".to_string(),
+                            "audio" | "voice" => "🎤 Áudio".to_string(),
+                            "sticker" => "✨ Figurinha".to_string(),
+                            _ => "📄 Documento".to_string(),
+                        }
+                    } else {
+                        "Mensagem".to_string()
+                    }
+                });
+                crate::models::QuotedMessage {
+                    id: m.id,
+                    sender_name: m.sender_name.unwrap_or_else(|| "Participante".to_string()),
+                    text: r_text,
+                }
+            })
+        } else {
+            None
+        };
+
         let message = Message {
             id: msg_id.clone(),
             chat_jid: chat_jid.to_string(),
@@ -1003,7 +1035,7 @@ impl SessionManager {
             timestamp: now,
             status: "delivered".to_string(),
             media: None,
-            reply_to: None,
+            reply_to,
         };
 
         // Salva na lista de mensagens locais
@@ -1051,6 +1083,7 @@ impl SessionManager {
         file_name: &str,
         file_data_base64: &str,
         caption: Option<String>,
+        is_view_once: Option<bool>,
     ) -> Result<Message, String> {
         use base64::Engine;
         let clean_b64 = if let Some(idx) = file_data_base64.find(',') {
@@ -1059,9 +1092,19 @@ impl SessionManager {
             file_data_base64
         };
 
-        let bytes = base64::engine::general_purpose::STANDARD
+        let mut bytes = base64::engine::general_purpose::STANDARD
             .decode(clean_b64)
             .map_err(|e| format!("Falha ao decodificar base64: {:?}", e))?;
+
+        if media_type == "sticker" {
+            bytes = inject_whatsapp_sticker_metadata(
+                &bytes,
+                "Zappo",
+                "Zappo Desktop",
+                "com.zappo.app",
+                &["✨", "💬"],
+            );
+        }
 
         let now = chrono::Utc::now().timestamp_millis();
         let uuid_str = uuid::Uuid::new_v4().simple().to_string();
@@ -1116,22 +1159,34 @@ impl SessionManager {
                             ));
 
                             let wa_msg = match media_type {
-                                "image" => whatsapp_rust::media::image_message(
-                                    upload,
-                                    whatsapp_rust::media::ImageOptions {
-                                        caption: caption.clone(),
-                                        mimetype: Some(mime_type_str.to_string()),
-                                        ..Default::default()
-                                    },
-                                ),
-                                "video" => whatsapp_rust::media::video_message(
-                                    upload,
-                                    whatsapp_rust::media::VideoOptions {
-                                        caption: caption.clone(),
-                                        mimetype: Some(mime_type_str.to_string()),
-                                        ..Default::default()
-                                    },
-                                ),
+                                "image" => {
+                                    let mut msg = whatsapp_rust::media::image_message(
+                                        upload,
+                                        whatsapp_rust::media::ImageOptions {
+                                            caption: caption.clone(),
+                                            mimetype: Some(mime_type_str.to_string()),
+                                            ..Default::default()
+                                        },
+                                    );
+                                    if is_view_once.unwrap_or(false) {
+                                        msg.image_message.get_or_insert_default().view_once = is_view_once;
+                                    }
+                                    msg
+                                }
+                                "video" => {
+                                    let mut msg = whatsapp_rust::media::video_message(
+                                        upload,
+                                        whatsapp_rust::media::VideoOptions {
+                                            caption: caption.clone(),
+                                            mimetype: Some(mime_type_str.to_string()),
+                                            ..Default::default()
+                                        },
+                                    );
+                                    if is_view_once.unwrap_or(false) {
+                                        msg.video_message.get_or_insert_default().view_once = is_view_once;
+                                    }
+                                    msg
+                                }
                                 "audio" | "voice" => whatsapp_rust::media::audio_message(
                                     upload,
                                     whatsapp_rust::media::AudioOptions {
@@ -1211,6 +1266,7 @@ impl SessionManager {
             media_key,
             file_sha256,
             file_enc_sha256,
+            is_view_once,
         };
 
         let message = Message {
@@ -1451,7 +1507,25 @@ impl SessionManager {
         let chat_jid = format!("{}@s.whatsapp.net", clean_digits);
         let mut chats = self.storage.load_chats(account_id);
 
-        if let Some(existing) = chats.iter().find(|c| c.jid == chat_jid) {
+        // Desduplicação: verifica se já existe conversa com esse JID exato
+        // ou se o número termina com os dígitos informados (para lidar com 9º dígito / DDI)
+        if let Some(existing) = chats.iter().find(|c| {
+            if c.jid == chat_jid {
+                return true;
+            }
+            if let Some(phone) = &c.phone_number {
+                let p_clean: String = phone.chars().filter(|ch| ch.is_ascii_digit()).collect();
+                if p_clean == clean_digits {
+                    return true;
+                }
+                if clean_digits.len() >= 8 && p_clean.len() >= 8 {
+                    let min_len = 8.min(clean_digits.len().min(p_clean.len()));
+                    return clean_digits.ends_with(&p_clean[p_clean.len() - min_len..])
+                        || p_clean.ends_with(&clean_digits[clean_digits.len() - min_len..]);
+                }
+            }
+            false
+        }) {
             return Ok(existing.clone());
         }
 
@@ -1847,3 +1921,153 @@ impl SessionManager {
         Err("Sessão do WhatsApp não conectada".to_string())
     }
 }
+
+/// Injeta metadados de figurinha (EXIF compatível com WhatsApp) no arquivo WebP.
+///
+/// O WhatsApp decodifica metadados em um chunk EXIF contendo um cabeçalho TIFF
+/// com a tag customizada 0x5741 ('WA') apontando para um JSON UTF-8 com:
+/// - sticker-pack-id
+/// - sticker-pack-name
+/// - sticker-pack-publisher
+/// - emojis
+pub fn inject_whatsapp_sticker_metadata(
+    webp_bytes: &[u8],
+    pack_name: &str,
+    author: &str,
+    pack_id: &str,
+    emojis: &[&str],
+) -> Vec<u8> {
+    if webp_bytes.len() < 12 {
+        return webp_bytes.to_vec();
+    }
+    // Verifica assinatura RIFF .... WEBP
+    if &webp_bytes[0..4] != b"RIFF" || &webp_bytes[8..12] != b"WEBP" {
+        return webp_bytes.to_vec();
+    }
+
+    let json_val = serde_json::json!({
+        "sticker-pack-id": pack_id,
+        "sticker-pack-name": pack_name,
+        "sticker-pack-publisher": author,
+        "android-app-store-link": "https://github.com/marcuth/Zappo",
+        "ios-app-store-link": "https://github.com/marcuth/Zappo",
+        "emojis": emojis
+    });
+
+    let json_bytes = match serde_json::to_vec(&json_val) {
+        Ok(b) => b,
+        Err(_) => return webp_bytes.to_vec(),
+    };
+
+    // Monta o payload TIFF EXIF:
+    // Header (8 bytes): 'II' (0x4949 little-endian), 0x002A (magic), offset to IFD0 = 8 (0x00000008)
+    // IFD0:
+    //   num_entries = 1 (2 bytes: 0x0001)
+    //   Entry 0:
+    //     tag = 0x5741 (2 bytes: 0x41, 0x57)
+    //     type = 7 (UNDEFINED, 2 bytes: 0x07, 0x00)
+    //     count = json_len (4 bytes LE)
+    //     value_or_offset = 22 (0x16, 0x00, 0x00, 0x00) -> 8 + 2 + 12 = 22 bytes offset to data
+    //   next_ifd_offset = 0 (4 bytes: 0x00000000)
+    // Data:
+    //   json_bytes
+    let mut exif_payload = Vec::with_capacity(26 + json_bytes.len());
+    exif_payload.extend_from_slice(&[0x49, 0x49, 0x2A, 0x00, 0x08, 0x00, 0x00, 0x00]);
+    exif_payload.extend_from_slice(&[0x01, 0x00]);
+    exif_payload.extend_from_slice(&[0x41, 0x57, 0x07, 0x00]);
+    exif_payload.extend_from_slice(&(json_bytes.len() as u32).to_le_bytes());
+    exif_payload.extend_from_slice(&[0x16, 0x00, 0x00, 0x00]);
+    exif_payload.extend_from_slice(&[0x00, 0x00, 0x00, 0x00]);
+    exif_payload.extend_from_slice(&json_bytes);
+
+    // Agora reconstroi ou anexa ao container WebP
+    // Se o primeiro chunk for VP8X (bytes 12..16 == b"VP8X"), podemos ativar a flag EXIF (bit 3 / 0x08)
+    // e remover qualquer chunk EXIF existente, inserindo o novo.
+    let mut chunks: Vec<(&[u8], &[u8])> = Vec::new();
+    let mut offset = 12;
+    let mut _has_vp8x = false;
+    let mut vp8x_flags: u8 = 0;
+    let mut canvas_width = 512u32;
+    let mut canvas_height = 512u32;
+
+    while offset + 8 <= webp_bytes.len() {
+        let fourcc = &webp_bytes[offset..offset + 4];
+        let chunk_len = u32::from_le_bytes([
+            webp_bytes[offset + 4],
+            webp_bytes[offset + 5],
+            webp_bytes[offset + 6],
+            webp_bytes[offset + 7],
+        ]) as usize;
+
+        let data_start = offset + 8;
+        let data_end = (data_start + chunk_len).min(webp_bytes.len());
+        let chunk_data = &webp_bytes[data_start..data_end];
+
+        if fourcc == b"VP8X" && chunk_data.len() >= 10 {
+            _has_vp8x = true;
+            vp8x_flags = chunk_data[0];
+            // Dimensões canvas em VP8X: 24-bit width-1, 24-bit height-1
+            canvas_width = 1 + (chunk_data[4] as u32
+                | ((chunk_data[5] as u32) << 8)
+                | ((chunk_data[6] as u32) << 16));
+            canvas_height = 1 + (chunk_data[7] as u32
+                | ((chunk_data[8] as u32) << 8)
+                | ((chunk_data[9] as u32) << 16));
+        } else if fourcc != b"EXIF" {
+            // Ignora chunks EXIF antigos para substituir pelo novo
+            chunks.push((fourcc, chunk_data));
+        }
+
+        // Chunks no WebP têm padding de 1 byte se o tamanho for ímpar
+        let padded_size = 8 + chunk_len + (chunk_len % 2);
+        offset += padded_size;
+    }
+
+    // Flag EXIF bit 3 = 0x08
+    vp8x_flags |= 0x08;
+
+    let mut new_webp = Vec::new();
+    new_webp.extend_from_slice(b"RIFF");
+    new_webp.extend_from_slice(&[0, 0, 0, 0]); // reservado para o tamanho total
+    new_webp.extend_from_slice(b"WEBP");
+
+    // Escreve VP8X atualizado ou criado
+    new_webp.extend_from_slice(b"VP8X");
+    new_webp.extend_from_slice(&10u32.to_le_bytes()); // tamanho do payload VP8X = 10
+    let mut vp8x_payload = [0u8; 10];
+    vp8x_payload[0] = vp8x_flags;
+    let w_val = canvas_width.saturating_sub(1);
+    let h_val = canvas_height.saturating_sub(1);
+    vp8x_payload[4] = (w_val & 0xFF) as u8;
+    vp8x_payload[5] = ((w_val >> 8) & 0xFF) as u8;
+    vp8x_payload[6] = ((w_val >> 16) & 0xFF) as u8;
+    vp8x_payload[7] = (h_val & 0xFF) as u8;
+    vp8x_payload[8] = ((h_val >> 8) & 0xFF) as u8;
+    vp8x_payload[9] = ((h_val >> 16) & 0xFF) as u8;
+    new_webp.extend_from_slice(&vp8x_payload);
+
+    // Escreve os demais chunks (VP8, VP8L, ANIM, etc.)
+    for (fourcc, data) in chunks {
+        new_webp.extend_from_slice(fourcc);
+        new_webp.extend_from_slice(&(data.len() as u32).to_le_bytes());
+        new_webp.extend_from_slice(data);
+        if data.len() % 2 != 0 {
+            new_webp.push(0x00);
+        }
+    }
+
+    // Escreve o novo chunk EXIF
+    new_webp.extend_from_slice(b"EXIF");
+    new_webp.extend_from_slice(&(exif_payload.len() as u32).to_le_bytes());
+    new_webp.extend_from_slice(&exif_payload);
+    if exif_payload.len() % 2 != 0 {
+        new_webp.push(0x00);
+    }
+
+    // Atualiza tamanho no RIFF (tamanho total - 8)
+    let total_riff_size = (new_webp.len() - 8) as u32;
+    new_webp[4..8].copy_from_slice(&total_riff_size.to_le_bytes());
+
+    new_webp
+}
+

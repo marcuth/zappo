@@ -23,9 +23,14 @@ import { Badge } from "../ui/badge"
 interface MediaMessageCardProps {
     media: MediaAttachment
     onDownload: () => void
+    onConvertToSticker?: () => void
 }
 
-export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
+export function MediaMessageCard({
+    media,
+    onDownload,
+    onConvertToSticker,
+}: MediaMessageCardProps) {
     const [failedSrc, setFailedSrc] = useState<string | null>(null)
     const [isLightboxOpen, setIsLightboxOpen] = useState(false)
     const [isPdfModalOpen, setIsPdfModalOpen] = useState(false)
@@ -137,6 +142,12 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
                                     Expandir
                                 </span>
                             </div>
+                            {media.isViewOnce && (
+                                <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full bg-black/70 text-amber-400 border border-amber-400/40 text-[10px] font-semibold flex items-center gap-1 backdrop-blur">
+                                    <span>①</span>
+                                    <span>Visualização única</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -147,6 +158,7 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
                         fileName={media.fileName}
                         fileSize={media.fileSize}
                         onClose={() => setIsLightboxOpen(false)}
+                        onConvertToSticker={onConvertToSticker}
                     />
                 </>
             )
@@ -154,7 +166,13 @@ export function MediaMessageCard({ media, onDownload }: MediaMessageCardProps) {
 
         if (isVideo) {
             return (
-                <div className="mt-1.5 rounded-2xl overflow-hidden border border-border/60 bg-black/40 shadow-md max-w-sm">
+                <div className="mt-1.5 rounded-2xl overflow-hidden border border-border/60 bg-black/40 shadow-md max-w-sm relative">
+                    {media.isViewOnce && (
+                        <div className="absolute top-2 left-2 z-10 px-2 py-0.5 rounded-full bg-black/70 text-amber-400 border border-amber-400/40 text-[10px] font-semibold flex items-center gap-1 backdrop-blur">
+                            <span>①</span>
+                            <span>Visualização única</span>
+                        </div>
+                    )}
                     <video
                         src={mediaSrc}
                         controls

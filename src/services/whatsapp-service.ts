@@ -102,6 +102,7 @@ export class WhatsAppService {
         fileName: string,
         fileDataBase64: string,
         caption?: string,
+        isViewOnce?: boolean,
     ): Promise<Message> {
         return invoke<Message>("send_media", {
             accountId,
@@ -110,6 +111,7 @@ export class WhatsAppService {
             fileName,
             fileDataBase64,
             caption: caption || null,
+            isViewOnce: isViewOnce ?? null,
         })
     }
 

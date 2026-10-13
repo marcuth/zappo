@@ -2,6 +2,7 @@ import {
     LuDownload,
     LuRotateCcw,
     LuRotateCw,
+    LuSparkles,
     LuX,
     LuZoomIn,
     LuZoomOut,
@@ -20,6 +21,7 @@ interface ImageLightboxModalProps {
     fileName?: string
     fileSize?: number
     onClose: () => void
+    onConvertToSticker?: () => void
 }
 
 export function ImageLightboxModal({
@@ -29,6 +31,7 @@ export function ImageLightboxModal({
     fileName = "Imagem",
     fileSize,
     onClose,
+    onConvertToSticker,
 }: ImageLightboxModalProps) {
     const [scale, setScale] = useState(1)
     const [rotation, setRotation] = useState(0)
@@ -197,6 +200,24 @@ export function ImageLightboxModal({
                     >
                         <LuRotateCcw className="h-4 w-4" />
                     </Button>
+
+                    {onConvertToSticker && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/20 rounded-lg gap-1.5"
+                            onClick={() => {
+                                onConvertToSticker()
+                                onClose()
+                            }}
+                            title="Criar figurinha (sticker) a partir desta imagem"
+                        >
+                            <LuSparkles className="h-3.5 w-3.5" />
+                            <span className="hidden sm:inline">
+                                Criar Figurinha
+                            </span>
+                        </Button>
+                    )}
 
                     <Button
                         variant="ghost"

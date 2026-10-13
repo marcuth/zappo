@@ -36,7 +36,11 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
     }
 
     const handleToggle = (
-        key: "performanceMode" | "hardwareAcceleration" | "notifications",
+        key:
+            | "performanceMode"
+            | "hardwareAcceleration"
+            | "notifications"
+            | "autoPurgeRevokedMessages",
         value: boolean,
     ) => {
         updateSettings({
@@ -279,6 +283,32 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                     onCheckedChange={(checked) =>
                                         handleToggle(
                                             "hardwareAcceleration",
+                                            checked,
+                                        )
+                                    }
+                                />
+                            </div>
+
+                            <div className="p-3 flex items-center justify-between gap-3">
+                                <div>
+                                    <h5 className="text-xs font-medium text-foreground">
+                                        Purgar Mensagens Apagadas (SQLite e
+                                        Cache)
+                                    </h5>
+                                    <p className="text-[11px] text-muted-foreground">
+                                        Exclui permanentemente mensagens
+                                        revogadas e limpa seus arquivos de mídia
+                                        do disco local
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={
+                                        settings.autoPurgeRevokedMessages ??
+                                        true
+                                    }
+                                    onCheckedChange={(checked) =>
+                                        handleToggle(
+                                            "autoPurgeRevokedMessages",
                                             checked,
                                         )
                                     }

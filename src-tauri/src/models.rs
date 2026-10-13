@@ -48,6 +48,8 @@ pub struct MediaAttachment {
     pub file_sha256: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub file_enc_sha256: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_view_once: Option<bool>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -164,8 +166,14 @@ pub struct AppSettings {
     pub auto_download: AutoDownloadSettings,
     pub performance_mode: bool,
     pub hardware_acceleration: bool,
+    #[serde(default = "default_true")]
+    pub auto_purge_revoked_messages: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub storage_path: Option<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AppSettings {
@@ -177,6 +185,7 @@ impl Default for AppSettings {
             auto_download: AutoDownloadSettings::default(),
             performance_mode: true,
             hardware_acceleration: true,
+            auto_purge_revoked_messages: true,
             storage_path: None,
         }
     }

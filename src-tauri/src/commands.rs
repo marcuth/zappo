@@ -171,6 +171,7 @@ pub async fn send_media(
     file_name: String,
     file_data_base64: String,
     caption: Option<String>,
+    is_view_once: Option<bool>,
 ) -> Result<Message, String> {
     state
         .session_mgr
@@ -181,6 +182,7 @@ pub async fn send_media(
             &file_name,
             &file_data_base64,
             caption,
+            is_view_once,
         )
         .await
 }

@@ -16,5 +16,6 @@ export interface AppSettings {
     autoDownload: AutoDownloadSettings
     performanceMode: boolean // Reduz animações pesadas e libera cache de imagens
     hardwareAcceleration: boolean
+    autoPurgeRevokedMessages?: boolean // Purgar permanentemente mensagens revogadas e apagar mídia local
     storagePath?: string
 }

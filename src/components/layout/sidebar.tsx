@@ -351,7 +351,7 @@ export function Sidebar({
                                     </div>
 
                                     <div className="flex items-center justify-between gap-1">
-                                        <p className="text-xs text-muted-foreground truncate font-sans font-emoji">
+                                        <p className="text-xs text-muted-foreground truncate font-sans">
                                             {chat.lastMessage?.text ||
                                                 "Sem mensagens"}
                                         </p>
