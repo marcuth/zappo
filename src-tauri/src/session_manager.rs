@@ -1579,16 +1579,17 @@ impl SessionManager {
     }
 
     /// Busca a foto de perfil de um contato ou grupo no WhatsApp
-    pub async fn get_profile_picture(
-        &self,
-        jid_str: &str,
-    ) -> Result<Option<String>, String> {
+    pub async fn get_profile_picture(&self, jid_str: &str) -> Result<Option<String>, String> {
         let client_opt = self.active_client.lock().await.clone();
         if let Some(client) = client_opt {
             if client.is_connected() {
                 if let Ok(jid) = jid_str.parse::<Jid>() {
                     if jid.is_group() {
-                        match client.groups().get_profile_pictures(vec![jid], PictureType::Preview).await {
+                        match client
+                            .groups()
+                            .get_profile_pictures(vec![jid], PictureType::Preview)
+                            .await
+                        {
                             Ok(pics) => {
                                 if let Some(p) = pics.into_iter().next() {
                                     return Ok(p.url);
@@ -1624,7 +1625,7 @@ impl SessionManager {
                 let jid = group_jid_str
                     .parse::<Jid>()
                     .map_err(|e| format!("JID inválido: {:?}", e))?;
-                
+
                 let meta = client
                     .groups()
                     .get_metadata(&jid)
@@ -1636,13 +1637,17 @@ impl SessionManager {
                     .into_iter()
                     .map(|p| {
                         let p_jid_str = p.jid.to_string();
-                        let phone = p.phone_number.as_ref().map(|j| j.user.to_string()).or_else(|| {
-                            if !p.jid.is_lid() {
-                                Some(p.jid.user.to_string())
-                            } else {
-                                None
-                            }
-                        });
+                        let phone =
+                            p.phone_number
+                                .as_ref()
+                                .map(|j| j.user.to_string())
+                                .or_else(|| {
+                                    if !p.jid.is_lid() {
+                                        Some(p.jid.user.to_string())
+                                    } else {
+                                        None
+                                    }
+                                });
                         let display_name = p.username.as_ref().map(|u| u.to_string());
                         let is_admin = p.is_admin();
                         let is_super_admin = p.is_super_admin();
@@ -1701,11 +1706,7 @@ impl SessionManager {
     }
 
     /// Sai de um grupo no WhatsApp
-    pub async fn leave_group(
-        &self,
-        account_id: &str,
-        group_jid_str: &str,
-    ) -> Result<(), String> {
+    pub async fn leave_group(&self, account_id: &str, group_jid_str: &str) -> Result<(), String> {
         let client_opt = self.active_client.lock().await.clone();
         if let Some(client) = client_opt {
             if client.is_connected() {
@@ -1780,11 +1781,7 @@ impl SessionManager {
     }
 
     /// Desfaz o silenciamento de uma conversa
-    pub async fn unmute_chat(
-        &self,
-        account_id: &str,
-        chat_jid_str: &str,
-    ) -> Result<(), String> {
+    pub async fn unmute_chat(&self, account_id: &str, chat_jid_str: &str) -> Result<(), String> {
         let client_opt = self.active_client.lock().await.clone();
         if let Some(client) = client_opt {
             if client.is_connected() {
