@@ -1,8 +1,11 @@
 import {
     LuBell,
     LuBellOff,
+    LuCopy,
     LuCrown,
+    LuEllipsisVertical,
     LuLogOut,
+    LuMessageSquare,
     LuRefreshCw,
     LuShieldCheck,
     LuUserPlus,
@@ -10,6 +13,12 @@ import {
 import { useCallback, useEffect, useState } from "react"
 import { toast } from "sonner"
 
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from "../ui/dropdown-menu"
 import {
     Dialog,
     DialogContent,
@@ -19,6 +28,8 @@ import {
 } from "../ui/dialog"
 import { WhatsAppService } from "../../services/whatsapp-service"
 import { AddParticipantModal } from "./add-participant-modal"
+import { formatPhoneNumber } from "../../lib/format-sender"
+import { useAccount } from "../providers/account-provider"
 import { Chat, GroupParticipant } from "../../types"
 import { ScrollArea } from "../ui/scroll-area"
 import { Separator } from "../ui/separator"
@@ -41,6 +52,7 @@ export function GroupMembersModal({
     accountId,
     onLeaveGroupSuccess,
 }: GroupMembersModalProps) {
+    const { startChat } = useAccount()
     const [participants, setParticipants] = useState<GroupParticipant[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isAddOpen, setIsAddOpen] = useState(false)
@@ -250,11 +262,14 @@ export function GroupMembersModal({
                             ) : (
                                 <div className="space-y-1.5">
                                     {participants.map((p) => {
+                                        const formattedPhone = p.phone
+                                            ? formatPhoneNumber(p.phone) ||
+                                              `+${p.phone}`
+                                            : formatPhoneNumber(p.jid)
                                         const displayName =
                                             p.displayName ||
-                                            (p.phone
-                                                ? `+${p.phone}`
-                                                : p.jid.split("@")[0])
+                                            formattedPhone ||
+                                            p.jid.split("@")[0]
 
                                         return (
                                             <div
@@ -274,11 +289,15 @@ export function GroupMembersModal({
                                                                 {displayName}
                                                             </span>
                                                         </div>
-                                                        {p.phone && (
-                                                            <span className="text-[10px] text-muted-foreground font-mono truncate block">
-                                                                +{p.phone}
-                                                            </span>
-                                                        )}
+                                                        {formattedPhone &&
+                                                            formattedPhone !==
+                                                                displayName && (
+                                                                <span className="text-[10px] text-muted-foreground font-mono truncate block">
+                                                                    {
+                                                                        formattedPhone
+                                                                    }
+                                                                </span>
+                                                            )}
                                                     </div>
                                                 </div>
 
@@ -300,6 +319,75 @@ export function GroupMembersModal({
                                                             Admin
                                                         </Badge>
                                                     ) : null}
+
+                                                    <DropdownMenu>
+                                                        <DropdownMenuTrigger
+                                                            asChild
+                                                        >
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-md opacity-70 group-hover:opacity-100 transition-opacity"
+                                                                title="Opções do participante"
+                                                            >
+                                                                <LuEllipsisVertical className="h-3.5 w-3.5" />
+                                                            </Button>
+                                                        </DropdownMenuTrigger>
+                                                        <DropdownMenuContent
+                                                            align="end"
+                                                            className="w-48"
+                                                        >
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    const targetPhone =
+                                                                        p.phone ||
+                                                                        p.jid
+                                                                            .split(
+                                                                                "@",
+                                                                            )[0]
+                                                                            .split(
+                                                                                ":",
+                                                                            )[0]
+                                                                    startChat(
+                                                                        targetPhone,
+                                                                        p.displayName ||
+                                                                            undefined,
+                                                                    )
+                                                                    onOpenChange(
+                                                                        false,
+                                                                    )
+                                                                }}
+                                                                className="gap-2 text-xs cursor-pointer"
+                                                            >
+                                                                <LuMessageSquare className="h-3.5 w-3.5 text-primary" />
+                                                                <span>
+                                                                    Conversar em
+                                                                    particular
+                                                                </span>
+                                                            </DropdownMenuItem>
+                                                            <DropdownMenuItem
+                                                                onClick={() => {
+                                                                    const textToCopy =
+                                                                        formattedPhone ||
+                                                                        p.phone ||
+                                                                        p.jid
+                                                                    navigator.clipboard.writeText(
+                                                                        textToCopy,
+                                                                    )
+                                                                    toast.success(
+                                                                        "Número/ID copiado para a área de transferência!",
+                                                                    )
+                                                                }}
+                                                                className="gap-2 text-xs cursor-pointer"
+                                                            >
+                                                                <LuCopy className="h-3.5 w-3.5 text-muted-foreground" />
+                                                                <span>
+                                                                    Copiar
+                                                                    número/JID
+                                                                </span>
+                                                            </DropdownMenuItem>
+                                                        </DropdownMenuContent>
+                                                    </DropdownMenu>
                                                 </div>
                                             </div>
                                         )
