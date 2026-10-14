@@ -3,6 +3,7 @@ import {
     useContext,
     useEffect,
     useState,
+    useRef,
     ReactNode,
     useCallback,
 } from "react"
@@ -19,6 +20,7 @@ import {
     StorageStats,
 } from "../../types"
 import { WhatsAppService } from "../../services/whatsapp-service"
+import { playNotificationSound } from "../../lib/sound-effects"
 
 interface AccountContextType {
     accounts: Account[]
@@ -35,6 +37,7 @@ interface AccountContextType {
     // Actions
     switchAccount: (accountId: string) => Promise<void>
     createAccount: (name: string, phoneNumber?: string) => Promise<Account>
+    renameAccount: (accountId: string, newName: string) => Promise<void>
     deleteAccount: (accountId: string) => Promise<void>
     selectChat: (chat: Chat | null) => Promise<void>
     startChat: (phoneNumber: string, name?: string) => Promise<Chat | null>
@@ -89,6 +92,8 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const [activeChat, setActiveChat] = useState<Chat | null>(null)
     const [messages, setMessages] = useState<Message[]>([])
     const [settings, setSettings] = useState<AppSettings>(defaultSettings)
+    const settingsRef = useRef<AppSettings>(defaultSettings)
+    settingsRef.current = settings
     const [storageStats, setStorageStats] = useState<StorageStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isConnecting, setIsConnecting] = useState(false)
@@ -188,6 +193,14 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 ({ accountId, message }) => {
                     // SÓ A CONTA ATIVA PROCESSA MENSAGENS!
                     if (!activeAccount || activeAccount.id !== accountId) return
+
+                    // Tocar som de notificação se não for do próprio usuário e som estiver ativo
+                    if (
+                        !message.fromMe &&
+                        settingsRef.current.notificationSound
+                    ) {
+                        playNotificationSound()
+                    }
 
                     // Update active conversation if matches with robust deduplication
                     if (activeChat && activeChat.jid === message.chatJid) {
@@ -340,6 +353,29 @@ export function AccountProvider({ children }: { children: ReactNode }) {
             `Conta "${name}" criada. Escaneie o QR Code do WhatsApp para parear.`,
         )
         return newAcc
+    }
+
+    const renameAccount = async (accountId: string, newName: string) => {
+        try {
+            const updated = await WhatsAppService.renameAccount(
+                accountId,
+                newName,
+            )
+            setAccounts((prev) =>
+                prev.map((a) =>
+                    a.id === accountId ? { ...a, name: updated.name } : a,
+                ),
+            )
+            if (activeAccount?.id === accountId) {
+                setActiveAccount((prev) =>
+                    prev ? { ...prev, name: updated.name } : null,
+                )
+            }
+            toast.success(`Conta renomeada para "${updated.name}".`)
+        } catch (error) {
+            console.error("Erro ao renomear conta:", error)
+            toast.error("Falha ao renomear conta.")
+        }
     }
 
     const deleteAccount = async (accountId: string) => {
@@ -740,6 +776,7 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                 pairingCode,
                 switchAccount,
                 createAccount,
+                renameAccount,
                 deleteAccount,
                 selectChat,
                 startChat,

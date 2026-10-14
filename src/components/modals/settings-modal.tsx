@@ -1,4 +1,5 @@
 import {
+    LuBell,
     LuCpu,
     LuDownload,
     LuHardDrive,
@@ -6,6 +7,7 @@ import {
     LuPalette,
     LuSettings,
     LuSun,
+    LuVolume2,
     LuZap,
 } from "react-icons/lu"
 
@@ -49,6 +51,7 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
             | "performanceMode"
             | "hardwareAcceleration"
             | "notifications"
+            | "notificationSound"
             | "autoPurgeRevokedMessages",
         value: boolean,
     ) => {
@@ -76,13 +79,20 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                     defaultValue="downloads"
                     className="flex-1 flex flex-col min-h-0 mt-3"
                 >
-                    <TabsList className="grid grid-cols-3 w-full shrink-0 h-9 p-1 bg-muted/70 rounded-xl">
+                    <TabsList className="grid grid-cols-4 w-full shrink-0 h-9 p-1 bg-muted/70 rounded-xl">
                         <TabsTrigger
                             value="downloads"
                             className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
                         >
                             <LuDownload className="h-3.5 w-3.5" />
                             <span>Downloads</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="notifications"
+                            className="gap-1.5 text-xs rounded-lg data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+                        >
+                            <LuBell className="h-3.5 w-3.5" />
+                            <span>Notificações</span>
                         </TabsTrigger>
                         <TabsTrigger
                             value="performance"
@@ -259,6 +269,79 @@ export function SettingsModal({ open, onOpenChange }: SettingsModalProps) {
                                     onCheckedChange={(checked) =>
                                         handleAutoDownloadChange(
                                             "autoDownloadOnWifi",
+                                            checked,
+                                        )
+                                    }
+                                />
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    {/* TAB: NOTIFICAÇÕES E SONS */}
+                    <TabsContent
+                        value="notifications"
+                        className="flex-1 overflow-y-auto pr-1 mt-4 space-y-4 scrollbar-discrete focus-visible:outline-none"
+                    >
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <h4 className="text-xs font-semibold text-foreground">
+                                    Alertas e Sons
+                                </h4>
+                                <p className="text-[11px] text-muted-foreground mt-0.5">
+                                    Gerencie notificações de novas mensagens
+                                    recebidas e alertas sonoros.
+                                </p>
+                            </div>
+                            <Badge
+                                variant="outline"
+                                className="text-[10px] text-primary border-primary/30 bg-primary/10 shrink-0"
+                            >
+                                Sistema
+                            </Badge>
+                        </div>
+
+                        <div className="divide-y divide-border/60 rounded-xl border border-border bg-card/60 overflow-hidden">
+                            {/* Notificações do Sistema */}
+                            <div className="p-3 flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="flex items-center gap-1.5">
+                                        <LuBell className="w-3.5 h-3.5 text-primary" />
+                                        <h5 className="text-xs font-medium text-foreground">
+                                            Notificações na Área de Trabalho
+                                        </h5>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                        Exibir banners nativos do Windows ao
+                                        receber novas mensagens
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={settings.notifications}
+                                    onCheckedChange={(checked) =>
+                                        handleToggle("notifications", checked)
+                                    }
+                                />
+                            </div>
+
+                            {/* Alerta Sonoro */}
+                            <div className="p-3 flex items-center justify-between gap-3">
+                                <div>
+                                    <div className="flex items-center gap-1.5">
+                                        <LuVolume2 className="w-3.5 h-3.5 text-primary" />
+                                        <h5 className="text-xs font-medium text-foreground">
+                                            Alerta Sonoro de Novas Mensagens
+                                        </h5>
+                                    </div>
+                                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                                        Tocar som suave e discreto sintetizado
+                                        ao receber novas mensagens
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={settings.notificationSound}
+                                    onCheckedChange={(checked) =>
+                                        handleToggle(
+                                            "notificationSound",
                                             checked,
                                         )
                                     }
