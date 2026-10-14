@@ -4,46 +4,83 @@
 
 ![Zappo Logo](./public/logo192.png)
 
-**Cliente desktop moderno, leve e ultrarrápido para WhatsApp construído com Tauri v2, Rust e React 19.**
+**Cliente desktop moderno, ultraleve e de alta performance para WhatsApp construído com Tauri v2, Rust e React 19.**
 
 [![Status](https://img.shields.io/badge/status-em%20desenvolvimento-orange.svg)]()
-[![Versão](<https://img.shields.io/badge/versão-v0.1.0%20(não%20lançada)-yellow.svg>)]()
+[![Versão](<https://img.shields.io/badge/versão-v0.1.0%20(pre--release)-yellow.svg>)]()
 [![Licença](https://img.shields.io/badge/license-MIT-blue.svg)]()
+[![Memória](https://img.shields.io/badge/RAM-~48MB-brightgreen.svg)]()
+[![Electron](https://img.shields.io/badge/Electron-Zero-success.svg)]()
 
 </div>
 
 ---
 
-> [!WARNING]
-> **Status de Lançamento:** A versão **`v0.1.0` ainda NÃO foi lançada oficialmente**.  
-> O aplicativo está atualmente em fase de desenvolvimento ativo (_pre-release_ / _WIP_). Novas funcionalidades e refinamentos estão sendo adicionados continuamente.
+> [!NOTE]
+> **Status do Projeto:** A versão **`v0.1.0` é uma prévia ativa de desenvolvimento (_pre-release_)**.  
+> O Zappo foi projetado como uma alternativa nativa de consumo ultrabaixo de memória (~48 MB de RAM) ao WhatsApp Desktop e Web baseados em Electron. Novas funcionalidades e refinamentos são incorporados continuamente.
 
 ---
 
-## ✨ Funcionalidades Atuais
+## ✨ Destaques e Funcionalidades
 
-- 🔐 **Multi-Contas Isoladas:** Gerencie múltiplas contas simultâneas com bancos de dados SQLite e diretórios de mídia 100% isolados.
-- 📱 **Conexão Flexível:** Pareamento rápido via QR Code ou por Código de Pareamento numérico (8 dígitos por telefone).
-- 💬 **Mensageria Completa:** Envio e recebimento em tempo real de mensagens de texto, imagens, vídeos, áudios/mensagens de voz, documentos e figurinhas (_stickers_).
-- 🎨 **Criação de Figurinhas:** Converta qualquer imagem (PNG, JPG, WebP) em figurinhas nativas com recorte e proporção otimizados (512x512 WebP).
-- 😃 **Emojis & Figurinhas Recentes:** Seletor de emojis categorizados com suporte à tipografia Google Noto Color Emoji e galeria de figurinhas recebidas.
-- 🖼️ **Preview de Mídia:** Miniaturas com _blur_ estético e download sob demanda de fotos, vídeos e documentos.
-- ➕ **Nova Conversa Descomplicada:** Inicie conversas diretas com qualquer número sem precisar salvá-lo na lista de contatos.
-- 🧹 **Gerenciamento de Armazenamento:** Estatísticas de uso por categoria (fotos, vídeos, áudios, documentos, stickers), limpeza de cache e otimização (_vacuum_) da base de dados.
-- 🌗 **Design Premium:** Interface moderna com tema escuro e claro, construída com Tailwind CSS 4 e componentes Shadcn UI.
+### 🔐 Multi-Contas & Sessões Isoladas
+
+- **Multi-Sessões Simultâneas:** Conecte e alterne entre múltiplas contas do WhatsApp de maneira fluida.
+- **Isolamento Total:** Cada sessão possui armazenamento SQLite e diretórios de mídias criptografadas totalmente segregados.
+- **Renomeação de Sessões:** Personalize os nomes de identificação de cada conta conectada.
+- **Perfil Cadastral da Sessão Ativa:** Visualize cartão completo com número de telefone formatado, foto em alta resolução, push name, JID e recado/status da conta conectada.
+
+### 💬 Mensageria & Conversas
+
+- **Comunicação em Tempo Real:** Envio e recebimento imediato de mensagens com status de entrega e leitura.
+- **Detecção Inteligente de Autoria:** Notificações sonoras (`notification.mp3`) ativadas exclusivamente para mensagens de terceiros, com supressão garantida para mensagens enviadas por você (incluindo eco de múltiplos aparelhos).
+- **Formatação Rica & Markdown:** Suporte completo a formatação WhatsApp (_negrito_, _itálico_, ~tachado~ e `código monospaçado`) com links clicáveis.
+- **Gravação de Áudio Nativa:** Gravador de voz integrado via microfone com envio direto e balão de áudio waveform com controle de velocidade (1x, 1.5x, 2x).
+- **Reações com Emojis:** Reações rápidas sobre qualquer mensagem com seletor completo de emojis.
+- **Mensagens com Visualização Única (_View Once_):** Envio e identificação com badge `① Visualização única`.
+- **Tratamento de Mensagens Revogadas (Apagadas):** Ocultação inteligente com revelação sob demanda e purga permanente opcional de banco e mídias.
+- **Compactação de Textos Longos:** Leitura confortável com recolhimento expansível ("Ler mais...").
+- **Metadados da Mensagem:** Visualizador de dados técnicos (ID, stanza, timestamp, status de entrega e chaves criptográficas).
+
+### 👥 Grupos & Contatos
+
+- **Link Oficial de Convite de Grupos:** Gere, visualize, copie e redefina links oficiais (`chat.whatsapp.com`) diretamente pelo modal do grupo.
+- **Gestão de Participantes:** Modal detalhado com foto, nome de exibição, número formatado no padrão internacional (+55...) e marcação de administradores.
+- **Ações Rápidas por Participante:** Menu contextual em cada membro para iniciar conversa direta em particular ou copiar número/JID.
+- **Adição Direta por Número:** Adicione novos membros a qualquer grupo digitando apenas o número de telefone, sem necessidade de salvá-lo na agenda.
+- **Controle de Notificações:** Silencie conversas ou grupos por períodos pré-definidos (8 horas, 1 semana ou sempre).
+- **Cartão do Contato:** Modal detalhado de contato acessível pelo topo da conversa com foto ampliada, recado, JID e telefone formatado.
+- **Nova Conversa Descomplicada:** Inicie conversas diretas com qualquer número sem precisar adicioná-lo aos contatos do celular.
+
+### 🖼️ Mídias, Figurinhas & Documentos
+
+- **Conversão de Imagem para Figurinha:** Botão de ação rápida no menu de qualquer imagem para convertê-la imediatamente em sticker WebP 512x512.
+- **Editor de Imagens Integrado:** Ajustes de brilho, contraste, filtros artísticos (P&B, Sépia, Vintage), corte (1:1, 4:5, Original) e rotação 90° antes do envio.
+- **Visualizador de Mídias (Lightbox):** Modal em tela cheia com zoom, download nativo ("Salvar como...") e navegação sequencial entre mídias da conversa.
+- **Visualizador de Documentos PDF:** Leitura e pré-visualização de arquivos PDF diretamente no aplicativo.
+- **Download Seletivo:** Controle granular de download automático por tipo de arquivo (fotos, vídeos, áudios, documentos e figurinhas) e limite configurável de tamanho (MB).
+
+### 🧹 Armazenamento & Performance
+
+- **Painel de Armazenamento:** Gráficos e estatísticas de consumo por categoria (banco de dados, imagens, vídeos, áudios, documentos e cache).
+- **Limpeza Inteligente:** Liberação seletiva de arquivos antigos por categoria ou por conversa individual.
+- **Otimização SQLite (Vacuum):** Desfragmentação e redução do tamanho físico do banco de dados local com 1 clique.
 
 ---
 
 ## 🛠 Tech Stack
 
-- **Desktop Framework:** [Tauri v2](https://tauri.app/)
-- **Frontend:** [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
-- **Build Tool:** [Vite 7](https://vite.dev/)
-- **Backend Nativo:** [Rust](https://www.rust-lang.org/) + [`whatsapp-rust`](https://crates.io/crates/whatsapp-rust)
-- **Estilização:** [Tailwind CSS 4](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)
-- **Ícones:** [react-icons (Lucide)](https://react-icons.github.io/react-icons/)
-- **Validação de Schemas:** [Zod v4](https://zod.dev/)
-- **Armazenamento:** SQLite local (via `rusqlite` e `whatsapp-rust-sqlite-storage`)
+| Camada                | Tecnologia                                                                                     | Descrição                                                  |
+| :-------------------- | :--------------------------------------------------------------------------------------------- | :--------------------------------------------------------- |
+| **Desktop Framework** | [Tauri v2](https://tauri.app/)                                                                 | Runtime nativo leve em Rust, seguro e com baixo footprint  |
+| **Frontend**          | [React 19](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)                 | Interface moderna, estrita e com componentes reativos      |
+| **Build Tool**        | [Vite 7](https://vite.dev/)                                                                    | Bundler ultrarrápido com Hot Module Replacement            |
+| **Backend Nativo**    | [Rust](https://www.rust-lang.org/) + [`whatsapp-rust`](https://crates.io/crates/whatsapp-rust) | Cliente de WhatsApp puro Rust com protocolo Noise e Signal |
+| **Estilização**       | [Tailwind CSS 4](https://tailwindcss.com/) + [Shadcn UI](https://ui.shadcn.com/)               | Sistema de design moderno, limpo e adaptável (Dark/Light)  |
+| **Ícones**            | [Lucide (react-icons/lu)](https://react-icons.github.io/react-icons/)                          | Biblioteca de ícones vetoriais concisa e padronizada       |
+| **Validação**         | [Zod v4](https://zod.dev/)                                                                     | Validação robusta de schemas em runtime                    |
+| **Armazenamento**     | SQLite (`rusqlite`)                                                                            | Persistência local criptografada e de alta velocidade      |
 
 ---
 
@@ -51,108 +88,111 @@
 
 ### Pré-requisitos
 
-- [Node.js](https://nodejs.org/) (versão 20+)
+- [Node.js](https://nodejs.org/) (versão 20 ou superior)
 - [Rust & Cargo](https://rustup.rs/) (versão estável mais recente)
+- Dependências de compilação da plataforma C++ / Visual Studio Build Tools no Windows
 
-### Passos
+### Instruções
 
-1. **Instalar dependências do frontend:**
+1. **Instalar as dependências:**
 
     ```bash
     npm install
     ```
 
-2. **Iniciar o ambiente de desenvolvimento (Tauri + Vite):**
+2. **Executar em modo de desenvolvimento (Tauri + Vite HMR):**
 
     ```bash
     npm run tauri dev
     ```
 
-3. **Compilar para produção:**
+3. **Validação de tipos e build do frontend:**
+
+    ```bash
+    npm run build
+    ```
+
+4. **Formatação e lint:**
+
+    ```bash
+    npm run lint ; npm run format
+    ```
+
+5. **Gerar pacote instalador para produção:**
     ```bash
     npm run tauri build
     ```
 
 ---
 
-## 📋 Roadmap / A Fazer (TODO)
+## 📋 Roadmap & Status de Implementação
 
-Lista de melhorias, correções e novas funcionalidades planejadas para as próximas versões:
+Acompanhamento detalhado do progresso de desenvolvimento:
 
 ### 💬 Mensagens e Conversas
 
-- [x] **Sincronização de Grupos:** Corrigir a identificação e exibição dos nomes corretos dos grupos.
-- [x] **Identificação em Grupos:** Exibir foto de perfil, nome e número de telefone do autor de cada mensagem enviada no grupo.
-- [x] **Formatação do Número do Autor:** Corrigir a exibição do telefone do autor nas mensagens de grupo (evitar exibir o ID bruto ou formatação incorreta).
-- [x] **Agrupamento de Mensagens:** Agrupar mensagens sequenciais do mesmo autor na conversa, evitando repetição desnecessária de nome, foto e número.
-- [x] **Compactação de Mensagens Longas:** Implementar recolhimento com botão "Ler mais..." para mensagens com textos muito extensos.
-- [x] **Mensagens Fantasmas:** Corrigir anomalia de mensagens fantasmas ou duplicadas em conversas em grupo.
-- [x] **Desduplicação ao Iniciar Nova Conversa:** Evitar duplicar ou recriar a conversa na barra lateral ao iniciar chat com um número com o qual o usuário já possui histórico prévio, redirecionando automaticamente para a conversa existente.
-- [x] **Menu Compacto ("...") no Topo da Conversa:** Adicionar menu dropdown com ícone de reticências verticais (`...`) no cabeçalho do chat ativo para agrupar e limpar os botões de ações rápidas superiores (limpar conversa, excluir chat, informações, etc.).
-- [x] **Efeito Sonoro de Notificação:** Tocar alerta sonoro agradável e discreto (`public/assets/sounds/notification.mp3`) ao receber novas mensagens na conversa, com controle nas preferências.
-- [ ] **Notificações de Sistema no Chat:** Exibir mensagens de sistema contextuais na timeline da conversa (ex: entrada/saída de membros, adições ao grupo, alterações de assunto ou permissões).
-- [x] **Tratamento e Ocultação de Mensagens Revogadas (Apagadas):**
-    - Ocultar automaticamente mensagens revogadas da timeline com opção de visualizá-las sob demanda mediante clique.
-    - Adicionar configuração nas preferências (ativa por padrão) para purgar permanentemente mensagens revogadas do banco de dados SQLite e apagar mídias em cache local.
-- [x] **Envio de Mensagens com Visualização Única (_View Once_):** Suporte ao envio de mídias temporárias efêmeras para fotos e vídeos, exibição de badge `① Visualização única` e alternador no rodapé de envio.
-- [x] **Gravação e Envio de Mensagens de Voz:** Implementar gravador de áudio integrado com microfone no rodapé da conversa para envio direto de notas de voz.
-- [x] **Validação do Envio de Reações aos Servidores:** Diagnosticar e garantir que as reações com emojis disparadas no cliente sejam confirmadas e sincronizadas remotamente junto aos servidores do WhatsApp.
-- [ ] **Gerenciamento e Edição de Mensagens:** Permitir exclusão (para mim e para todos), edição de mensagens enviadas e moderação de mensagens por administradores.
-- [x] **Formatação & Links:** Suporte completo à formatação Markdown do WhatsApp (_negrito_, _itálico_, ~tachado~, `código`) e detecção de links clicáveis.
-- [ ] **Prévia de Links:** Buscar e exibir metadados ricos (título, descrição e imagem de capa) ao compartilhar links.
-- [ ] **Enquetes:** Suporte para envio, visualização e votação em enquetes.
-- [ ] **Canais de Transmissão:** Permitir acompanhamento e visualização de mensagens em canais oficiais.
-- [ ] **Sincronização de Limpeza:** Aprimorar a sincronização ao limpar e excluir conversas junto aos servidores do WhatsApp.
-- [x] **Reações a Mensagens:** Permitir adicionar e visualizar reações com emojis nas mensagens recebidas e enviadas.
-- [ ] **Recebimento e Exibição de Reações de Outros Participantes:** Capturar eventos remotos de reação (`ReactionMessage`) vindos do WhatsApp, persistir e atualizar em tempo real os badges de emojis recebidos nas mensagens do chat (com identificador de quem reagiu).
-- [x] **Expansão de Emojis:** Adicionar mais emojis ao acervo do seletor abrangendo animais, comidas, atividades e símbolos adicionais.
-- [x] **Ver dados da mensagem:** Visualizar metadados técnicos de uma mensagem (ID, JID, timestamp, status, campos de criptografia).
+- [x] **Sincronização de Grupos:** Identificação e exibição dos nomes corretos dos grupos.
+- [x] **Identificação em Grupos:** Exibir foto de perfil, nome e telefone do autor de cada mensagem.
+- [x] **Formatação do Número do Autor:** Formatação amigável (+55...) nas mensagens de grupo.
+- [x] **Agrupamento de Mensagens:** Agrupamento sequencial inteligente por autor.
+- [x] **Compactação de Mensagens Longas:** Recolhimento expansível com botão "Ler mais...".
+- [x] **Eliminação de Mensagens Fantasmas:** Deduplicação e descarte de eventos nulos ou duplicados.
+- [x] **Deduplicação ao Iniciar Conversa:** Redirecionamento automático se a conversa já existir.
+- [x] **Menu Compacto ("...") no Cabeçalho:** Agrupamento limpo de ações da conversa.
+- [x] **Efeito Sonoro de Notificação:** Alerta sonoro discreto com controle nas configurações.
+- [x] **Filtro de Notificação Própria:** Supressão total de alertas sonoros quando o autor da mensagem for o usuário.
+- [x] **Visualização Única (_View Once_):** Envio e identificação visual de mídias efêmeras.
+- [x] **Gravação e Envio de Áudio:** Gravador de microfone integrado no rodapé da conversa.
+- [x] **Player de Áudio Personalizado:** Barra de ondas (waveform), velocidade ajustável e controles refinados.
+- [x] **Reações a Mensagens:** Adicionar e visualizar reações de emojis sincronizadas com o WhatsApp.
+- [x] **Tratamento de Mensagens Revogadas:** Ocultação com clique para exibir e purga definitiva opcional.
+- [x] **Formatação & Links:** Formatação WhatsApp Markdown completa com links clicáveis.
+- [x] **Metadados da Mensagem:** Modal de detalhes técnicos da mensagem.
+- [ ] **Notificações de Sistema no Chat:** Avisos contextuais na timeline (entradas/saídas, mudanças de assunto).
+- [ ] **Edição e Exclusão Remota:** Edição de texto e exclusão para todos.
+- [ ] **Prévia de Links (OpenGraph):** Card rico com título, descrição e miniatura de sites.
+- [ ] **Enquetes Interativas:** Envio, visualização e contagem de votos em enquetes.
+- [ ] **Canais de Transmissão:** Leitura e acompanhamento de canais oficiais.
+- [ ] **Recebimento de Reações Remotas:** Atualização em tempo real de reações enviadas por terceiros.
 
 ### 👥 Gestão de Grupos e Contatos
 
-- [x] **Fotos de Perfil dos Autores e Contatos:** Buscar, exibir e armazenar em cache as fotos de perfil de contatos, grupos e autores das mensagens nas conversas.
-- [x] **Membros do Grupo:** Visualizar a lista detalhada de participantes e administradores do grupo.
-- [x] **Adicionar Participantes:** Adicionar membros ao grupo, inclusive pessoas que não estejam salvas na agenda (diretamente pelo número).
-- [x] **Sair de Grupos:** Adicionar opções para sair de grupos e silenciar notificações.
-- [x] **Abertura de Membros pelo Cabeçalho:** Exibir o modal detalhado de membros e dados do grupo ao clicar no nome ou avatar do grupo no topo da conversa.
-- [x] **Modal de Dados do Contato:** Visualizar cartão detalhado de informações do contato (foto em alta resolução, recado/status, telefone formatado, JID e botão de conversa rápida) ao clicar no nome do usuário no topo de uma conversa direta ou pelo menu de opções.
-- [ ] **Formatação e Exibição Completa de Telefones nas Conversas:** Garantir a formatação internacional padronizada (+55 (XX) XXXXX-XXXX) de todos os números de telefone exibidos e corrigir locais onde o número de telefone de participantes está ausente ou oculto (especialmente no cabeçalho de mensagens em grupos, figurinhas e detalhes da conversa).
-- [x] **Formatação e Nomes na Lista de Participantes:** Formatar números de telefone no padrão internacional amigável e exibir nomes de exibição/push name recuperados do WhatsApp para todos os membros disponíveis.
-- [x] **Menu de Contexto para Membros do Grupo:** Adicionar menu contextual (botão de reticências) para cada participante da lista com opções para conversar em particular e copiar número/JID.
-- [x] **Convidar para Grupo via Link:** Gerar, visualizar, copiar e revogar link de convite oficial do grupo (`chat.whatsapp.com`) quando o usuário for administrador ou quando a permissão estiver habilitada.
-- [x] **Perfil Pessoal da Sessão Ativa:** Permitir visualizar e consultar os dados cadastrais da própria conta conectada (número, nome de exibição, foto e status).
-- [x] **Renomear Sessão / Conta Conectada:** Permitir alterar o rótulo/nome identificador da conta no gerenciador de contas do aplicativo para melhor organização de múltiplas sessões.
+- [x] **Fotos de Perfil:** Busca, exibição e cache de fotos de grupos e contatos.
+- [x] **Lista de Membros do Grupo:** Exibição completa de participantes e administradores.
+- [x] **Adicionar Participantes:** Adição por número de telefone sem necessidade de salvar na agenda.
+- [x] **Sair e Silenciar Grupos:** Opção para sair do grupo e silenciamento temporário ou permanente.
+- [x] **Modal de Dados do Contato:** Cartão detalhado com foto HD, recado, telefone e JID.
+- [x] **Convidar para Grupo via Link:** Gerar, visualizar, copiar e redefinir links `chat.whatsapp.com`.
+- [x] **Perfil Pessoal da Sessão Ativa:** Modal completo com foto, push name, telefone, status e JID oficial.
+- [x] **Renomear Sessão / Conta:** Edição direta do rótulo identificador da conta no app.
+- [x] **Menu de Contexto de Membros:** Ações rápidas individuais nos participantes da lista.
+- [ ] **Formatação e Exibição Completa de Telefones nas Conversas:** Revisão detalhada da formatação internacional em todos os componentes de cabeçalho e mensagens.
 
 ### 🖼️ Mídias, Figurinhas e Documentos
 
-- [x] **Criar Figurinha a partir de Imagem do Chat:** Adicionar botão de ação rápida ("Criar Figurinha") no menu de contexto de qualquer imagem recebida ou enviada na conversa, convertendo-a automaticamente para sticker WebP com fundo transparente e proporções adequadas.
-- [x] **Legendas em Anexos:** Adicionar suporte à inclusão de legendas personalizadas em fotos, vídeos e documentos.
-- [x] **Visualizador de Imagens (Lightbox):** Permitir clicar na imagem para expandi-la em tela cheia com zoom e navegação.
-- [x] **Navegação Entre Mídias no Visualizador:** Permitir navegar sequencialmente entre mídias anteriores e posteriores da conversa (fotos, vídeos, documentos e áudios) diretamente pelo modal do visualizador de mídia ao abrir qualquer anexo em um grupo ou conversa individual.
-- [x] **Download e Salvamento de Imagens:** Corrigir a ação de baixar imagem para abrir o diálogo nativo do sistema operacional ("Salvar como") escolhendo o destino do arquivo, em vez de redirecionar para a página/URL da imagem.
-- [x] **Editor de Imagens:** Ferramentas integradas de edição antes do envio de fotos (rotação de 90° em passos horários e anti-horários, filtros de imagem P&B, Sépia, Vintage e Normal, ajustes deslizantes de brilho e contraste, além de enquadramento 1:1, 4:5 ou original).
-- [x] **Visualizador de PDF:** Prévia e leitura integrada de documentos PDF diretamente no aplicativo.
-- [x] **Pesquisa de Emojis:** Corrigir busca e filtragem no seletor de emojis.
-- [x] **Consertar Envio de Mensagens de Voz:** Diagnosticar e corrigir o envio de notas de voz gravadas pelo microfone, garantindo correta conversão de formato/codec de áudio (Opus/OGG) e compatibilidade com os servidores do WhatsApp.
-- [x] **Balão de Áudio Personalizado:** Substituir o player de áudio nativo padrão por um componente de reprodução estilizado e integrado ao design do aplicativo, contendo barra de progresso em formato de onda/waveform, controle de velocidade (1x, 1.5x, 2x), botão play/pause e duração decorrida/total.
-- [x] **Correção da Abertura do Modal de Emojis ao Reagir:** Corrigir a abertura do seletor/modal completo de emojis acionado pelo botão `+` na barra de reações rápidas sobre as mensagens.
-- [x] **Identificação em Envio de Figurinhas:** Exibir o cabeçalho/nome do autor ao enviar figurinhas isoladas em grupos (quando não houver mensagem anterior dele).
-- [ ] **Figurinhas Favoritas:** Sincronizar figurinhas favoritas da conta e permitir favoritar novas figurinhas recebidas.
-- [ ] **Criação de Figurinhas por Vídeo:** Criar figurinhas animadas a partir de trechos de vídeo ou GIFs.
-- [x] **Download Automático:** Corrigir e refinar a desativação do download automático de mídias de acordo com as preferências do usuário.
+- [x] **Criar Figurinha a partir de Imagem:** Conversão automática de fotos para stickers WebP transparentes.
+- [x] **Legendas em Anexos:** Suporte a textos e legendas ao enviar mídias.
+- [x] **Visualizador Lightbox:** Visualização em tela cheia com zoom e navegação sequencial entre mídias.
+- [x] **Download Nativo ("Salvar como"):** Diálogo do sistema operacional para escolha de destino do arquivo.
+- [x] **Editor de Imagens Integrado:** Filtros, cortes e rotação de fotos antes do envio.
+- [x] **Visualizador de PDF:** Leitura nativa e integrada de documentos PDF.
+- [x] **Seletor de Emojis e Figurinhas:** Pesquisa aprimorada e suporte a fontes coloridas.
+- [x] **Download Seletivo:** Controle de mídias automáticas por tipo e tamanho máximo.
+- [ ] **Figurinhas Favoritas:** Sincronização e gerenciamento de stickers favoritos.
+- [ ] **Criação de Figurinhas Animadas:** Criação a partir de vídeos curtos ou GIFs.
 
 ### 🔌 Integrações e APIs para Desenvolvedores
 
-- [ ] **Servidor Local de REST API:** Servidor HTTP REST embutido e opcional (configurável nas preferências do app) para permitir automações e integrações de desenvolvedores com o WhatsApp (envio de mensagens, mídias e listagem de conversas).
-- [ ] **Autenticação Multi-Conta por API Key:** Gerar e exigir token de autenticação (API Key) individual para cada sessão/conta ativa conectada ao aplicativo, assegurando isolamento completo entre as contas expostas via API.
+- [ ] **Servidor Local de REST API:** Servidor HTTP embutido e configurável para automações locais com o WhatsApp.
+- [ ] **Autenticação Multi-Conta por API Key:** Tokens isolados por sessão para integração externa segura.
 
 ### 📢 Status e Atualizações
 
-- [ ] **Visualização de Status:** Visualizar postagens de status de contatos (fotos, vídeos e textos).
-- [ ] **Publicação de Status:** Permitir a postagem de novas atualizações de status diretamente pelo aplicativo.
+- [ ] **Visualização de Status:** Exibição de postagens temporárias de contatos.
+- [ ] **Publicação de Status:** Criação e envio de novos status pelo aplicativo.
 
 ---
 
 ## 📜 Licença
 
-Distribuído sob a licença MIT. Veja `LICENSE` para mais detalhes.
+Distribuído sob a licença **MIT**. Consulte o arquivo `LICENSE` para obter mais detalhes.
