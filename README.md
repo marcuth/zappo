@@ -125,59 +125,25 @@
 
 ---
 
-## 📋 Roadmap & Status de Implementação
+## 📋 Roadmap (Tarefas Pendentes)
 
-Acompanhamento detalhado do progresso de desenvolvimento:
+Lista de melhorias, integrações e novas funcionalidades planejadas para as próximas versões:
 
 ### 💬 Mensagens e Conversas
 
-- [x] **Sincronização de Grupos:** Identificação e exibição dos nomes corretos dos grupos.
-- [x] **Identificação em Grupos:** Exibir foto de perfil, nome e telefone do autor de cada mensagem.
-- [x] **Formatação do Número do Autor:** Formatação amigável (+55...) nas mensagens de grupo.
-- [x] **Agrupamento de Mensagens:** Agrupamento sequencial inteligente por autor.
-- [x] **Compactação de Mensagens Longas:** Recolhimento expansível com botão "Ler mais...".
-- [x] **Eliminação de Mensagens Fantasmas:** Deduplicação e descarte de eventos nulos ou duplicados.
-- [x] **Deduplicação ao Iniciar Conversa:** Redirecionamento automático se a conversa já existir.
-- [x] **Menu Compacto ("...") no Cabeçalho:** Agrupamento limpo de ações da conversa.
-- [x] **Efeito Sonoro de Notificação:** Alerta sonoro discreto com controle nas configurações.
-- [x] **Filtro de Notificação Própria:** Supressão total de alertas sonoros quando o autor da mensagem for o usuário.
-- [x] **Visualização Única (_View Once_):** Envio e identificação visual de mídias efêmeras.
-- [x] **Gravação e Envio de Áudio:** Gravador de microfone integrado no rodapé da conversa.
-- [x] **Player de Áudio Personalizado:** Barra de ondas (waveform), velocidade ajustável e controles refinados.
-- [x] **Reações a Mensagens:** Adicionar e visualizar reações de emojis sincronizadas com o WhatsApp.
-- [x] **Tratamento de Mensagens Revogadas:** Ocultação com clique para exibir e purga definitiva opcional.
-- [x] **Formatação & Links:** Formatação WhatsApp Markdown completa com links clicáveis.
-- [x] **Metadados da Mensagem:** Modal de detalhes técnicos da mensagem.
-- [ ] **Notificações de Sistema no Chat:** Avisos contextuais na timeline (entradas/saídas, mudanças de assunto).
-- [ ] **Edição e Exclusão Remota:** Edição de texto e exclusão para todos.
-- [ ] **Prévia de Links (OpenGraph):** Card rico com título, descrição e miniatura de sites.
+- [ ] **Notificações de Sistema no Chat:** Avisos contextuais na timeline (entradas/saídas, mudanças de assunto e permissões).
+- [ ] **Edição e Exclusão Remota:** Edição de texto e exclusão de mensagens para todos.
+- [ ] **Prévia de Links (OpenGraph):** Card rico com título, descrição e miniatura ao enviar links.
 - [ ] **Enquetes Interativas:** Envio, visualização e contagem de votos em enquetes.
-- [ ] **Canais de Transmissão:** Leitura e acompanhamento de canais oficiais.
+- [ ] **Canais de Transmissão:** Leitura e acompanhamento de atualizações em canais oficiais.
 - [ ] **Recebimento de Reações Remotas:** Atualização em tempo real de reações enviadas por terceiros.
 
 ### 👥 Gestão de Grupos e Contatos
 
-- [x] **Fotos de Perfil:** Busca, exibição e cache de fotos de grupos e contatos.
-- [x] **Lista de Membros do Grupo:** Exibição completa de participantes e administradores.
-- [x] **Adicionar Participantes:** Adição por número de telefone sem necessidade de salvar na agenda.
-- [x] **Sair e Silenciar Grupos:** Opção para sair do grupo e silenciamento temporário ou permanente.
-- [x] **Modal de Dados do Contato:** Cartão detalhado com foto HD, recado, telefone e JID.
-- [x] **Convidar para Grupo via Link:** Gerar, visualizar, copiar e redefinir links `chat.whatsapp.com`.
-- [x] **Perfil Pessoal da Sessão Ativa:** Modal completo com foto, push name, telefone, status e JID oficial.
-- [x] **Renomear Sessão / Conta:** Edição direta do rótulo identificador da conta no app.
-- [x] **Menu de Contexto de Membros:** Ações rápidas individuais nos participantes da lista.
 - [ ] **Formatação e Exibição Completa de Telefones nas Conversas:** Revisão detalhada da formatação internacional em todos os componentes de cabeçalho e mensagens.
 
 ### 🖼️ Mídias, Figurinhas e Documentos
 
-- [x] **Criar Figurinha a partir de Imagem:** Conversão automática de fotos para stickers WebP transparentes.
-- [x] **Legendas em Anexos:** Suporte a textos e legendas ao enviar mídias.
-- [x] **Visualizador Lightbox:** Visualização em tela cheia com zoom e navegação sequencial entre mídias.
-- [x] **Download Nativo ("Salvar como"):** Diálogo do sistema operacional para escolha de destino do arquivo.
-- [x] **Editor de Imagens Integrado:** Filtros, cortes e rotação de fotos antes do envio.
-- [x] **Visualizador de PDF:** Leitura nativa e integrada de documentos PDF.
-- [x] **Seletor de Emojis e Figurinhas:** Pesquisa aprimorada e suporte a fontes coloridas.
-- [x] **Download Seletivo:** Controle de mídias automáticas por tipo e tamanho máximo.
 - [ ] **Figurinhas Favoritas:** Sincronização e gerenciamento de stickers favoritos.
 - [ ] **Criação de Figurinhas Animadas:** Criação a partir de vídeos curtos ou GIFs.
 
