@@ -6,29 +6,29 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Development
 
-| Command | Description |
-| ------- | ----------- |
-| `npm run dev` | Start Vite dev server (frontend only) |
+| Command             | Description                                                   |
+| ------------------- | ------------------------------------------------------------- |
+| `npm run dev`       | Start Vite dev server (frontend only)                         |
 | `npm run tauri dev` | Start Tauri app in development mode (frontend + Rust backend) |
-| `npm run build` | TypeScript compile + Vite build for production |
-| `npm run preview` | Preview the production build locally |
-| `npm run lint` | Run ESLint to check for errors |
-| `npm run format` | Format code with Prettier |
-| `npm run ci` | Run lint + format check (fails on issues) |
+| `npm run build`     | TypeScript compile + Vite build for production                |
+| `npm run preview`   | Preview the production build locally                          |
+| `npm run lint`      | Run ESLint to check for errors                                |
+| `npm run format`    | Format code with Prettier                                     |
+| `npm run ci`        | Run lint + format check (fails on issues)                     |
 
 ### Rust Backend
 
-| Command | Description |
-| ------- | ----------- |
-| `cd src-tauri && cargo test` | Run Rust unit tests |
+| Command                           | Description                                      |
+| --------------------------------- | ------------------------------------------------ |
+| `cd src-tauri && cargo test`      | Run Rust unit tests                              |
 | `cd src-tauri && cargo tarpaulin` | Run coverage analysis (requires cargo-tarpaulin) |
 
 **Note**: The Rust backend aims for 100% code coverage. Frontend testing framework is not yet configured.
 
 ### Tauri Build
 
-| Command | Description |
-| ------- | ----------- |
+| Command               | Description                                        |
+| --------------------- | -------------------------------------------------- |
 | `npm run tauri build` | Build the Tauri desktop application for production |
 
 ## Code Architecture
