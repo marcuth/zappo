@@ -519,9 +519,12 @@ impl SessionManager {
                         let accounts = storage.load_accounts();
                         if let Some(this_acc) = accounts.iter().find(|a| a.id == acc) {
                             if let Some(ref phone) = this_acc.phone {
-                                let phone_digits: String = phone.chars().filter(|c| c.is_ascii_digit()).collect();
-                                let sender_digits: String = sender_jid.chars().filter(|c| c.is_ascii_digit()).collect();
-                                if !phone_digits.is_empty() && sender_digits.contains(&phone_digits) {
+                                let phone_digits: String =
+                                    phone.chars().filter(|c| c.is_ascii_digit()).collect();
+                                let sender_digits: String =
+                                    sender_jid.chars().filter(|c| c.is_ascii_digit()).collect();
+                                if !phone_digits.is_empty() && sender_digits.contains(&phone_digits)
+                                {
                                     is_from_me = true;
                                 }
                             }
