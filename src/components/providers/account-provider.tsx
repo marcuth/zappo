@@ -94,6 +94,10 @@ export function AccountProvider({ children }: { children: ReactNode }) {
     const [settings, setSettings] = useState<AppSettings>(defaultSettings)
     const settingsRef = useRef<AppSettings>(defaultSettings)
     settingsRef.current = settings
+    const activeAccountRef = useRef<Account | null>(null)
+    activeAccountRef.current = activeAccount
+    const activeChatRef = useRef<Chat | null>(null)
+    activeChatRef.current = activeChat
     const [storageStats, setStorageStats] = useState<StorageStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isConnecting, setIsConnecting] = useState(false)
@@ -194,9 +198,27 @@ export function AccountProvider({ children }: { children: ReactNode }) {
                     // SÓ A CONTA ATIVA PROCESSA MENSAGENS!
                     if (!activeAccount || activeAccount.id !== accountId) return
 
-                    // Tocar som de notificação se não for do próprio usuário e som estiver ativo
+                    // Não toca notificação se eu sou o autor da mensagem
+                    const currentAcc = activeAccountRef.current
+                    const cleanPhone = (phone?: string) =>
+                        phone ? phone.replace(/\D/g, "") : ""
+                    const myPhoneDigits = cleanPhone(currentAcc?.phone)
+                    const senderJidDigits = cleanPhone(message.senderJid)
+                    const chatJidDigits = cleanPhone(message.chatJid)
+
+                    const isOwnMessage =
+                        Boolean(message.fromMe) ||
+                        message.senderName === "Você" ||
+                        (myPhoneDigits.length > 5 &&
+                            (senderJidDigits.includes(myPhoneDigits) ||
+                                myPhoneDigits.includes(senderJidDigits))) ||
+                        (!message.chatJid.endsWith("@g.us") &&
+                            myPhoneDigits.length > 5 &&
+                            chatJidDigits === myPhoneDigits)
+
+                    // Tocar som de notificação apenas para mensagens recebidas de terceiros e se o som estiver ativo
                     if (
-                        !message.fromMe &&
+                        !isOwnMessage &&
                         settingsRef.current.notificationSound
                     ) {
                         playNotificationSound()
