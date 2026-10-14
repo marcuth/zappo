@@ -36,6 +36,13 @@ export class WhatsAppService {
         return invoke<Account>("switch_account", { accountId })
     }
 
+    static async renameAccount(
+        accountId: string,
+        newName: string,
+    ): Promise<Account> {
+        return invoke<Account>("rename_account", { accountId, newName })
+    }
+
     static async deleteAccount(accountId: string): Promise<void> {
         return invoke<void>("delete_account", { accountId })
     }

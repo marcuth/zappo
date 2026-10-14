@@ -39,6 +39,7 @@ pub fn run() {
             commands::get_active_account,
             commands::create_account,
             commands::switch_account,
+            commands::rename_account,
             commands::delete_account,
             commands::get_pairing_qr,
             commands::request_pairing_code,

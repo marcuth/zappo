@@ -1,11 +1,13 @@
 import {
     LuCheck,
     LuKey,
+    LuPencil,
     LuPlus,
     LuQrCode,
     LuShieldAlert,
     LuTrash2,
     LuUsers,
+    LuX,
 } from "react-icons/lu"
 import { useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
@@ -35,6 +37,7 @@ export function AccountsModal({ open, onOpenChange }: AccountsModalProps) {
         activeAccount,
         switchAccount,
         createAccount,
+        renameAccount,
         deleteAccount,
         qrData,
         pairingCode,
@@ -45,6 +48,10 @@ export function AccountsModal({ open, onOpenChange }: AccountsModalProps) {
     const [newAccountName, setNewAccountName] = useState("")
     const [phoneNumber, setPhoneNumber] = useState("")
     const [createdAccId, setCreatedAccId] = useState<string | null>(null)
+    const [editingAccountId, setEditingAccountId] = useState<string | null>(
+        null,
+    )
+    const [editingAccountName, setEditingAccountName] = useState("")
 
     // Fecha o modal automaticamente após a conexão com o WhatsApp
     useEffect(() => {
@@ -139,34 +146,125 @@ export function AccountsModal({ open, onOpenChange }: AccountsModalProps) {
                                             {acc.name.slice(0, 2).toUpperCase()}
                                         </div>
 
-                                        <div className="min-w-0">
-                                            <div className="flex items-center gap-2">
-                                                <h5 className="text-xs font-semibold text-foreground truncate">
-                                                    {acc.name}
-                                                </h5>
-                                                {isActive &&
-                                                    acc.status ===
-                                                        "connected" && (
-                                                        <Badge className="h-4 text-[10px] px-1.5 bg-emerald-500 text-white font-medium border-none">
-                                                            Ativa • Recebendo
-                                                        </Badge>
-                                                    )}
-                                                {isActive &&
-                                                    acc.status !==
-                                                        "connected" && (
-                                                        <Badge className="h-4 text-[10px] px-1.5 bg-amber-500/20 text-amber-500 font-medium border border-amber-500/30">
-                                                            Aguardando QR Code
-                                                        </Badge>
-                                                    )}
-                                                {!isActive && (
-                                                    <Badge
-                                                        variant="outline"
-                                                        className="h-4 text-[10px] px-1.5 text-muted-foreground"
+                                        <div className="min-w-0 flex-1">
+                                            {editingAccountId === acc.id ? (
+                                                <div className="flex items-center gap-1.5 py-0.5">
+                                                    <Input
+                                                        value={
+                                                            editingAccountName
+                                                        }
+                                                        onChange={(e) =>
+                                                            setEditingAccountName(
+                                                                e.target.value,
+                                                            )
+                                                        }
+                                                        onKeyDown={(e) => {
+                                                            if (
+                                                                e.key ===
+                                                                    "Enter" &&
+                                                                editingAccountName.trim()
+                                                            ) {
+                                                                renameAccount(
+                                                                    acc.id,
+                                                                    editingAccountName.trim(),
+                                                                )
+                                                                setEditingAccountId(
+                                                                    null,
+                                                                )
+                                                            } else if (
+                                                                e.key ===
+                                                                "Escape"
+                                                            ) {
+                                                                setEditingAccountId(
+                                                                    null,
+                                                                )
+                                                            }
+                                                        }}
+                                                        placeholder="Novo nome da conta..."
+                                                        className="h-7 text-xs w-48 bg-background"
+                                                        autoFocus
+                                                    />
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10"
+                                                        onClick={() => {
+                                                            if (
+                                                                editingAccountName.trim()
+                                                            ) {
+                                                                renameAccount(
+                                                                    acc.id,
+                                                                    editingAccountName.trim(),
+                                                                )
+                                                                setEditingAccountId(
+                                                                    null,
+                                                                )
+                                                            }
+                                                        }}
+                                                        title="Salvar nome"
                                                     >
-                                                        Em Espera
-                                                    </Badge>
-                                                )}
-                                            </div>
+                                                        <LuCheck className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                    <Button
+                                                        size="icon"
+                                                        variant="ghost"
+                                                        className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                        onClick={() =>
+                                                            setEditingAccountId(
+                                                                null,
+                                                            )
+                                                        }
+                                                        title="Cancelar"
+                                                    >
+                                                        <LuX className="h-3.5 w-3.5" />
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2">
+                                                    <h5 className="text-xs font-semibold text-foreground truncate">
+                                                        {acc.name}
+                                                    </h5>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setEditingAccountId(
+                                                                acc.id,
+                                                            )
+                                                            setEditingAccountName(
+                                                                acc.name,
+                                                            )
+                                                        }}
+                                                        className="text-muted-foreground/60 hover:text-primary transition-colors cursor-pointer p-0.5 rounded"
+                                                        title="Renomear conta"
+                                                    >
+                                                        <LuPencil className="h-3 w-3" />
+                                                    </button>
+                                                    {isActive &&
+                                                        acc.status ===
+                                                            "connected" && (
+                                                            <Badge className="h-4 text-[10px] px-1.5 bg-emerald-500 text-white font-medium border-none">
+                                                                Ativa •
+                                                                Recebendo
+                                                            </Badge>
+                                                        )}
+                                                    {isActive &&
+                                                        acc.status !==
+                                                            "connected" && (
+                                                            <Badge className="h-4 text-[10px] px-1.5 bg-amber-500/20 text-amber-500 font-medium border border-amber-500/30">
+                                                                Aguardando QR
+                                                                Code
+                                                            </Badge>
+                                                        )}
+                                                    {!isActive && (
+                                                        <Badge
+                                                            variant="outline"
+                                                            className="h-4 text-[10px] px-1.5 text-muted-foreground"
+                                                        >
+                                                            Em Espera
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            )}
                                             <p className="text-[11px] text-muted-foreground truncate">
                                                 {acc.phone ||
                                                     acc.pushName ||

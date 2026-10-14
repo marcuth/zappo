@@ -66,6 +66,23 @@ pub async fn switch_account(
 }
 
 #[tauri::command]
+pub async fn rename_account(
+    state: State<'_, AppState>,
+    account_id: String,
+    new_name: String,
+) -> Result<Account, String> {
+    let mut accounts = state.storage.load_accounts();
+    if let Some(acc) = accounts.iter_mut().find(|a| a.id == account_id) {
+        acc.name = new_name.trim().to_string();
+        let updated = acc.clone();
+        state.storage.save_accounts(&accounts);
+        Ok(updated)
+    } else {
+        Err("Conta não encontrada".to_string())
+    }
+}
+
+#[tauri::command]
 pub async fn delete_account(state: State<'_, AppState>, account_id: String) -> Result<(), String> {
     let mut accounts = state.storage.load_accounts();
     accounts.retain(|a| a.id != account_id);
