@@ -1971,7 +1971,10 @@ impl SessionManager {
             .ok_or_else(|| "Conta não encontrada".to_string())?;
 
         let mut phone = target_acc.phone.clone();
-        let mut name = target_acc.push_name.clone().or_else(|| Some(target_acc.name.clone()));
+        let mut name = target_acc
+            .push_name
+            .clone()
+            .or_else(|| Some(target_acc.name.clone()));
         let mut avatar_url = target_acc.avatar_url.clone();
         let mut status = target_acc.status_text.clone();
 
@@ -1988,16 +1991,21 @@ impl SessionManager {
                     let jid_str = format!("{}@s.whatsapp.net", candidate_phone);
                     if let Ok(jid) = jid_str.parse::<Jid>() {
                         // Busca foto de perfil em alta resolução
-                        if let Ok(Some(pic)) = client.contacts().get_profile_picture(&jid, false).await {
+                        if let Ok(Some(pic)) =
+                            client.contacts().get_profile_picture(&jid, false).await
+                        {
                             avatar_url = Some(pic.url);
                         } else if avatar_url.is_none() {
-                            if let Ok(Some(pic)) = client.contacts().get_profile_picture(&jid, true).await {
+                            if let Ok(Some(pic)) =
+                                client.contacts().get_profile_picture(&jid, true).await
+                            {
                                 avatar_url = Some(pic.url);
                             }
                         }
 
                         // Busca informações adicionais (status/recado)
-                        if let Ok(info_map) = client.contacts().get_user_info(&[jid.clone()]).await {
+                        if let Ok(info_map) = client.contacts().get_user_info(&[jid.clone()]).await
+                        {
                             if let Some(info) = info_map.get(&jid) {
                                 if let Some(ref st) = info.status {
                                     if !st.trim().is_empty() {
