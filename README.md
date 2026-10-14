@@ -89,7 +89,7 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [x] **Mensagens Fantasmas:** Corrigir anomalia de mensagens fantasmas ou duplicadas em conversas em grupo.
 - [x] **Desduplicação ao Iniciar Nova Conversa:** Evitar duplicar ou recriar a conversa na barra lateral ao iniciar chat com um número com o qual o usuário já possui histórico prévio, redirecionando automaticamente para a conversa existente.
 - [x] **Menu Compacto ("...") no Topo da Conversa:** Adicionar menu dropdown com ícone de reticências verticais (`...`) no cabeçalho do chat ativo para agrupar e limpar os botões de ações rápidas superiores (limpar conversa, excluir chat, informações, etc.).
-- [ ] **Efeito Sonoro de Notificação:** Tocar alerta sonoro agradável e discreto ao receber novas mensagens na conversa em segundo plano ou em primeiro plano.
+- [x] **Efeito Sonoro de Notificação:** Tocar alerta sonoro agradável e discreto (`public/assets/sounds/notification.mp3`) ao receber novas mensagens na conversa, com controle nas preferências.
 - [ ] **Notificações de Sistema no Chat:** Exibir mensagens de sistema contextuais na timeline da conversa (ex: entrada/saída de membros, adições ao grupo, alterações de assunto ou permissões).
 - [x] **Tratamento e Ocultação de Mensagens Revogadas (Apagadas):**
     - Ocultar automaticamente mensagens revogadas da timeline com opção de visualizá-las sob demanda mediante clique.
@@ -115,13 +115,13 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [x] **Adicionar Participantes:** Adicionar membros ao grupo, inclusive pessoas que não estejam salvas na agenda (diretamente pelo número).
 - [x] **Sair de Grupos:** Adicionar opções para sair de grupos e silenciar notificações.
 - [x] **Abertura de Membros pelo Cabeçalho:** Exibir o modal detalhado de membros e dados do grupo ao clicar no nome ou avatar do grupo no topo da conversa.
-- [ ] **Modal de Dados do Contato:** Visualizar cartão detalhado de informações do contato (foto em alta resolução, recado/status, telefone formatado, JID e botão de conversa rápida) ao clicar no nome do usuário no topo de uma conversa direta.
+- [x] **Modal de Dados do Contato:** Visualizar cartão detalhado de informações do contato (foto em alta resolução, recado/status, telefone formatado, JID e botão de conversa rápida) ao clicar no nome do usuário no topo de uma conversa direta ou pelo menu de opções.
 - [ ] **Formatação e Exibição Completa de Telefones nas Conversas:** Garantir a formatação internacional padronizada (+55 (XX) XXXXX-XXXX) de todos os números de telefone exibidos e corrigir locais onde o número de telefone de participantes está ausente ou oculto (especialmente no cabeçalho de mensagens em grupos, figurinhas e detalhes da conversa).
-- [ ] **Formatação e Nomes na Lista de Participantes:** Formatar números de telefone no padrão internacional amigável e exibir nomes de exibição/push name recuperados do WhatsApp para todos os membros disponíveis.
-- [ ] **Menu de Contexto para Membros do Grupo:** Adicionar menu contextual (botão direito ou menu de ações) para cada participante da lista com opções para remover membro (para admins), visualizar dados do contato, iniciar conversa privada direta ou promover/rebaixar admin.
+- [x] **Formatação e Nomes na Lista de Participantes:** Formatar números de telefone no padrão internacional amigável e exibir nomes de exibição/push name recuperados do WhatsApp para todos os membros disponíveis.
+- [x] **Menu de Contexto para Membros do Grupo:** Adicionar menu contextual (botão de reticências) para cada participante da lista com opções para conversar em particular e copiar número/JID.
 - [ ] **Convidar para Grupo via Link:** Gerar, visualizar, copiar e revogar link de convite oficial do grupo (`chat.whatsapp.com`) quando o usuário for administrador ou quando a permissão estiver habilitada.
 - [ ] **Perfil Pessoal da Sessão Ativa:** Permitir visualizar e consultar os dados cadastrais da própria conta conectada (número, nome de exibição, foto e status).
-- [ ] **Renomear Sessão / Conta Conectada:** Permitir alterar o rótulo/nome identificador da conta no gerenciador de contas do aplicativo para melhor organização de múltiplas sessões.
+- [x] **Renomear Sessão / Conta Conectada:** Permitir alterar o rótulo/nome identificador da conta no gerenciador de contas do aplicativo para melhor organização de múltiplas sessões.
 
 ### 🖼️ Mídias, Figurinhas e Documentos
 
