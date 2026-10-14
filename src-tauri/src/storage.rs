@@ -59,6 +59,7 @@ impl StorageManager {
             name: "Conta Pessoal".to_string(),
             phone: None,
             push_name: None,
+            status_text: None,
             avatar_url: None,
             is_active: true,
             status: "pairing".to_string(),

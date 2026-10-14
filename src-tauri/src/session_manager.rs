@@ -1970,8 +1970,8 @@ impl SessionManager {
             .cloned()
             .ok_or_else(|| "Conta não encontrada".to_string())?;
 
-        let mut phone = target_acc.phone.clone();
-        let mut name = target_acc
+        let phone = target_acc.phone.clone();
+        let name = target_acc
             .push_name
             .clone()
             .or_else(|| Some(target_acc.name.clone()));

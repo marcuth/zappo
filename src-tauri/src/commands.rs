@@ -40,6 +40,7 @@ pub async fn create_account(
         name,
         phone: phone_number,
         push_name: None,
+        status_text: None,
         avatar_url: None,
         is_active: false,
         status: "pairing".to_string(),
