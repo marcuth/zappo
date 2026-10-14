@@ -4,6 +4,7 @@ import {
     LuEraser,
     LuEyeOff,
     LuHistory,
+    LuInfo,
     LuMic,
     LuPaperclip,
     LuRefreshCw,
@@ -34,6 +35,7 @@ import { ImageLightboxModal } from "./image-lightbox-modal"
 import { MessageContextMenu } from "./message-context-menu"
 import { useAccount } from "../providers/account-provider"
 import { GroupMembersModal } from "./group-members-modal"
+import { ContactInfoModal } from "./contact-info-modal"
 import { MediaMessageCard } from "./media-message-card"
 import { MessageInfoModal } from "./message-info-modal"
 import { MediaSendModal } from "./media-send-modal"
@@ -95,6 +97,7 @@ export function ChatView() {
         deleteChat,
         clearChatMessages,
         syncGroups,
+        startChat,
     } = useAccount()
 
     const [inputText, setInputText] = useState("")
@@ -106,6 +109,7 @@ export function ChatView() {
     const [isMediaModalOpen, setIsMediaModalOpen] = useState(false)
     const [isSyncingGroups, setIsSyncingGroups] = useState(false)
     const [isGroupMembersOpen, setIsGroupMembersOpen] = useState(false)
+    const [isContactInfoOpen, setIsContactInfoOpen] = useState(false)
     const [replyingMessage, setReplyingMessage] = useState<Message | null>(null)
 
     // Context menu
@@ -511,13 +515,18 @@ export function ChatView() {
             <div className="h-16 px-4 border-b border-border bg-card/70 backdrop-blur flex items-center justify-between shrink-0">
                 <div
                     onClick={() => {
-                        if (activeChat.isGroup) setIsGroupMembersOpen(true)
+                        if (activeChat.isGroup) {
+                            setIsGroupMembersOpen(true)
+                        } else {
+                            setIsContactInfoOpen(true)
+                        }
                     }}
-                    className={`flex items-center gap-3 min-w-0 ${
+                    className="flex items-center gap-3 min-w-0 cursor-pointer hover:opacity-80 transition-opacity"
+                    title={
                         activeChat.isGroup
-                            ? "cursor-pointer hover:opacity-80 transition-opacity"
-                            : ""
-                    }`}
+                            ? "Ver membros e dados do grupo"
+                            : "Ver dados do contato"
+                    }
                 >
                     <ChatAvatar
                         jid={activeChat.jid}
@@ -571,7 +580,7 @@ export function ChatView() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48">
-                            {activeChat.isGroup && (
+                            {activeChat.isGroup ? (
                                 <>
                                     <DropdownMenuItem
                                         onClick={() =>
@@ -595,6 +604,19 @@ export function ChatView() {
                                             }`}
                                         />
                                         <span>Sincronizar grupo</span>
+                                    </DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                </>
+                            ) : (
+                                <>
+                                    <DropdownMenuItem
+                                        onClick={() =>
+                                            setIsContactInfoOpen(true)
+                                        }
+                                        className="gap-2 text-xs cursor-pointer"
+                                    >
+                                        <LuInfo className="h-3.5 w-3.5 text-primary" />
+                                        <span>Dados do contato</span>
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                 </>
@@ -1015,6 +1037,18 @@ export function ChatView() {
                     accountId={activeAccount?.id || ""}
                     onLeaveGroupSuccess={() => {
                         setIsGroupMembersOpen(false)
+                    }}
+                />
+            )}
+
+            {/* Modal de Dados do Contato */}
+            {!activeChat.isGroup && (
+                <ContactInfoModal
+                    open={isContactInfoOpen}
+                    onOpenChange={setIsContactInfoOpen}
+                    chat={activeChat}
+                    onStartDirectChat={(phone, name) => {
+                        startChat(phone, name)
                     }}
                 />
             )}
