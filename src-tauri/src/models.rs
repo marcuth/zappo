@@ -10,6 +10,8 @@ pub struct Account {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub push_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_text: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
     pub is_active: bool,
     pub status: String, // "connected", "connecting", "disconnected", "pairing", "standby"
@@ -18,6 +20,20 @@ pub struct Account {
     pub last_connected_at: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unread_count: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UserProfile {
+    pub jid: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub phone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

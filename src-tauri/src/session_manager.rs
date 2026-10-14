@@ -1927,6 +1927,121 @@ impl SessionManager {
         Ok(())
     }
 
+    /// Obtém ou redefine o link oficial de convite de um grupo (chat.whatsapp.com/...)
+    pub async fn get_group_invite_link(
+        &self,
+        group_jid_str: &str,
+        reset: bool,
+    ) -> Result<String, String> {
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                let jid = group_jid_str
+                    .parse::<Jid>()
+                    .map_err(|e| format!("JID inválido: {:?}", e))?;
+
+                let code_or_link = client
+                    .groups()
+                    .get_invite_link(&jid, reset)
+                    .await
+                    .map_err(|e| format!("Erro ao obter link do grupo: {:?}", e))?;
+
+                let full_url = if code_or_link.starts_with("http") {
+                    code_or_link
+                } else {
+                    format!("https://chat.whatsapp.com/{}", code_or_link)
+                };
+
+                return Ok(full_url);
+            }
+        }
+        Err("Sessão do WhatsApp não conectada".to_string())
+    }
+
+    /// Obtém o perfil pessoal completo da conta conectada (número, nome, foto, status/recado)
+    pub async fn get_user_profile(
+        &self,
+        account_id: &str,
+    ) -> Result<crate::models::UserProfile, String> {
+        let accounts = self.storage.load_accounts();
+        let target_acc = accounts
+            .iter()
+            .find(|a| a.id == account_id)
+            .cloned()
+            .ok_or_else(|| "Conta não encontrada".to_string())?;
+
+        let mut phone = target_acc.phone.clone();
+        let mut name = target_acc.push_name.clone().or_else(|| Some(target_acc.name.clone()));
+        let mut avatar_url = target_acc.avatar_url.clone();
+        let mut status = target_acc.status_text.clone();
+
+        let client_opt = self.active_client.lock().await.clone();
+        if let Some(client) = client_opt {
+            if client.is_connected() {
+                // Monta JID da conta a partir do telefone ou fallback
+                let candidate_phone = phone
+                    .as_ref()
+                    .map(|p| p.chars().filter(|c| c.is_ascii_digit()).collect::<String>())
+                    .unwrap_or_default();
+
+                if !candidate_phone.is_empty() {
+                    let jid_str = format!("{}@s.whatsapp.net", candidate_phone);
+                    if let Ok(jid) = jid_str.parse::<Jid>() {
+                        // Busca foto de perfil em alta resolução
+                        if let Ok(Some(pic)) = client.contacts().get_profile_picture(&jid, false).await {
+                            avatar_url = Some(pic.url);
+                        } else if avatar_url.is_none() {
+                            if let Ok(Some(pic)) = client.contacts().get_profile_picture(&jid, true).await {
+                                avatar_url = Some(pic.url);
+                            }
+                        }
+
+                        // Busca informações adicionais (status/recado)
+                        if let Ok(info_map) = client.contacts().get_user_info(&[jid.clone()]).await {
+                            if let Some(info) = info_map.get(&jid) {
+                                if let Some(ref st) = info.status {
+                                    if !st.trim().is_empty() {
+                                        status = Some(st.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Salva atualizações cadastrais na conta local se encontradas
+        if status != target_acc.status_text || avatar_url != target_acc.avatar_url {
+            let mut updated_accounts = self.storage.load_accounts();
+            if let Some(acc) = updated_accounts.iter_mut().find(|a| a.id == account_id) {
+                if status.is_some() {
+                    acc.status_text = status.clone();
+                }
+                if avatar_url.is_some() {
+                    acc.avatar_url = avatar_url.clone();
+                }
+            }
+            self.storage.save_accounts(&updated_accounts);
+        }
+
+        let jid = phone
+            .as_ref()
+            .map(|p| {
+                let clean: String = p.chars().filter(|c| c.is_ascii_digit()).collect();
+                format!("{}@s.whatsapp.net", clean)
+            })
+            .unwrap_or_else(|| format!("{}@s.whatsapp.net", account_id));
+
+        Ok(crate::models::UserProfile {
+            jid,
+            phone,
+            name,
+            status,
+            avatar_url,
+        })
+    }
+
     /// Silencia notificações de uma conversa (grupo ou contato)
     pub async fn mute_chat(
         &self,

@@ -10,6 +10,7 @@ import {
     PairingCodeResponse,
     QrCodeResponse,
     StorageStats,
+    UserProfile,
 } from "../types"
 
 export class WhatsAppService {
@@ -173,6 +174,20 @@ export class WhatsAppService {
             accountId,
             groupJid,
         })
+    }
+
+    static async getGroupInviteLink(
+        groupJid: string,
+        reset = false,
+    ): Promise<string> {
+        return invoke<string>("get_group_invite_link", {
+            groupJid,
+            reset,
+        })
+    }
+
+    static async getUserProfile(accountId: string): Promise<UserProfile> {
+        return invoke<UserProfile>("get_user_profile", { accountId })
     }
 
     static async muteChat(

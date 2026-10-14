@@ -381,3 +381,23 @@ pub async fn send_reaction(
         )
         .await
 }
+
+#[tauri::command]
+pub async fn get_group_invite_link(
+    state: State<'_, AppState>,
+    group_jid: String,
+    reset: bool,
+) -> Result<String, String> {
+    state
+        .session_mgr
+        .get_group_invite_link(&group_jid, reset)
+        .await
+}
+
+#[tauri::command]
+pub async fn get_user_profile(
+    state: State<'_, AppState>,
+    account_id: String,
+) -> Result<crate::models::UserProfile, String> {
+    state.session_mgr.get_user_profile(&account_id).await
+}

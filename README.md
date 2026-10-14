@@ -119,8 +119,8 @@ Lista de melhorias, correções e novas funcionalidades planejadas para as próx
 - [ ] **Formatação e Exibição Completa de Telefones nas Conversas:** Garantir a formatação internacional padronizada (+55 (XX) XXXXX-XXXX) de todos os números de telefone exibidos e corrigir locais onde o número de telefone de participantes está ausente ou oculto (especialmente no cabeçalho de mensagens em grupos, figurinhas e detalhes da conversa).
 - [x] **Formatação e Nomes na Lista de Participantes:** Formatar números de telefone no padrão internacional amigável e exibir nomes de exibição/push name recuperados do WhatsApp para todos os membros disponíveis.
 - [x] **Menu de Contexto para Membros do Grupo:** Adicionar menu contextual (botão de reticências) para cada participante da lista com opções para conversar em particular e copiar número/JID.
-- [ ] **Convidar para Grupo via Link:** Gerar, visualizar, copiar e revogar link de convite oficial do grupo (`chat.whatsapp.com`) quando o usuário for administrador ou quando a permissão estiver habilitada.
-- [ ] **Perfil Pessoal da Sessão Ativa:** Permitir visualizar e consultar os dados cadastrais da própria conta conectada (número, nome de exibição, foto e status).
+- [x] **Convidar para Grupo via Link:** Gerar, visualizar, copiar e revogar link de convite oficial do grupo (`chat.whatsapp.com`) quando o usuário for administrador ou quando a permissão estiver habilitada.
+- [x] **Perfil Pessoal da Sessão Ativa:** Permitir visualizar e consultar os dados cadastrais da própria conta conectada (número, nome de exibição, foto e status).
 - [x] **Renomear Sessão / Conta Conectada:** Permitir alterar o rótulo/nome identificador da conta no gerenciador de contas do aplicativo para melhor organização de múltiplas sessões.
 
 ### 🖼️ Mídias, Figurinhas e Documentos

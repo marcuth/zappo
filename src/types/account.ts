@@ -10,12 +10,21 @@ export interface Account {
     name: string
     phone?: string
     pushName?: string
+    statusText?: string
     avatarUrl?: string
     isActive: boolean
     status: AccountStatus
     createdAt: number
     lastConnectedAt?: number
     unreadCount?: number
+}
+
+export interface UserProfile {
+    jid: string
+    phone?: string
+    name?: string
+    status?: string
+    avatarUrl?: string
 }
 
 export interface PairingCodeResponse {

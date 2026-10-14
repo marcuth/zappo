@@ -14,6 +14,7 @@ import { useState } from "react"
 
 import { useAccount } from "../providers/account-provider"
 import { NewChatModal } from "../modals/new-chat-modal"
+import { ProfileModal } from "../modals/profile-modal"
 import { ChatAvatar } from "../chat/chat-avatar"
 import { Button } from "../ui/button"
 import { Badge } from "../ui/badge"
@@ -43,6 +44,7 @@ export function Sidebar({
     const [searchQuery, setSearchQuery] = useState("")
     const [filter, setFilter] = useState<"all" | "unread" | "groups">("all")
     const [isNewChatOpen, setIsNewChatOpen] = useState(false)
+    const [isProfileOpen, setIsProfileOpen] = useState(false)
     const [isSyncingGroups, setIsSyncingGroups] = useState(false)
 
     const handleSyncGroups = async () => {
@@ -83,9 +85,18 @@ export function Sidebar({
                             className="w-full h-full object-contain"
                         />
                     </div>
-                    <div>
+                    <button
+                        type="button"
+                        onClick={() => activeAccount && setIsProfileOpen(true)}
+                        className="text-left group cursor-pointer"
+                        title={
+                            activeAccount
+                                ? "Ver perfil da sessão ativa"
+                                : undefined
+                        }
+                    >
                         <div className="flex items-center gap-1.5">
-                            <span className="font-bold text-sm tracking-tight text-foreground">
+                            <span className="font-bold text-sm tracking-tight text-foreground group-hover:text-primary transition-colors">
                                 Zappo
                             </span>
                             <Badge
@@ -95,7 +106,7 @@ export function Sidebar({
                                 Rust 0.7
                             </Badge>
                         </div>
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground group-hover:text-foreground transition-colors">
                             <span
                                 className={`w-2 h-2 rounded-full ${
                                     isConnected
@@ -103,13 +114,13 @@ export function Sidebar({
                                         : "bg-amber-500"
                                 }`}
                             />
-                            <span className="truncate max-w-[130px]">
+                            <span className="truncate max-w-[130px] font-medium">
                                 {activeAccount
                                     ? activeAccount.name
                                     : "Nenhuma conta"}
                             </span>
                         </div>
-                    </div>
+                    </button>
                 </div>
 
                 {/* Header Action Buttons */}
@@ -401,6 +412,12 @@ export function Sidebar({
             <NewChatModal
                 open={isNewChatOpen}
                 onOpenChange={setIsNewChatOpen}
+            />
+            {/* Modal de Perfil Pessoal da Sessão Ativa */}
+            <ProfileModal
+                open={isProfileOpen}
+                onOpenChange={setIsProfileOpen}
+                account={activeAccount}
             />
         </aside>
     )

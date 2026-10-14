@@ -1,9 +1,11 @@
 import {
     LuBell,
     LuBellOff,
+    LuCheck,
     LuCopy,
     LuCrown,
     LuEllipsisVertical,
+    LuLink,
     LuLogOut,
     LuMessageSquare,
     LuRefreshCw,
@@ -58,6 +60,42 @@ export function GroupMembersModal({
     const [isAddOpen, setIsAddOpen] = useState(false)
     const [isLeaving, setIsLeaving] = useState(false)
     const [isMuting, setIsMuting] = useState(false)
+    const [inviteLink, setInviteLink] = useState<string | null>(null)
+    const [isLoadingLink, setIsLoadingLink] = useState(false)
+    const [hasCopiedLink, setHasCopiedLink] = useState(false)
+
+    const handleFetchInviteLink = async (reset = false) => {
+        setIsLoadingLink(true)
+        try {
+            const link = await WhatsAppService.getGroupInviteLink(
+                chat.jid,
+                reset,
+            )
+            setInviteLink(link)
+            if (reset) {
+                toast.success(
+                    "Link de convite do grupo redefinido com sucesso!",
+                )
+            }
+        } catch (error) {
+            console.error("Erro ao obter link de convite:", error)
+            toast.error(
+                typeof error === "string"
+                    ? error
+                    : "Falha ao obter link de convite. Você precisa ser administrador do grupo.",
+            )
+        } finally {
+            setIsLoadingLink(false)
+        }
+    }
+
+    const handleCopyInviteLink = async () => {
+        if (!inviteLink) return
+        await navigator.clipboard.writeText(inviteLink)
+        setHasCopiedLink(true)
+        toast.success("Link de convite copiado para a área de transferência!")
+        setTimeout(() => setHasCopiedLink(false), 2000)
+    }
 
     const fetchMembers = useCallback(async () => {
         setIsLoading(true)
@@ -224,6 +262,72 @@ export function GroupMembersModal({
                                 </button>
                             </div>
                         )}
+                        {/* Invite Link Card */}
+                        <div className="mt-3 p-2.5 rounded-lg border border-border bg-muted/40">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                                    <LuLink className="h-3.5 w-3.5 text-primary" />
+                                    <span>Link de Convite do Grupo</span>
+                                </div>
+                                {!inviteLink && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        disabled={isLoadingLink}
+                                        onClick={() =>
+                                            handleFetchInviteLink(false)
+                                        }
+                                        className="h-6 px-2 text-[11px] text-primary hover:text-primary hover:bg-primary/10"
+                                    >
+                                        {isLoadingLink
+                                            ? "Gerando..."
+                                            : "Gerar Link"}
+                                    </Button>
+                                )}
+                            </div>
+
+                            {inviteLink && (
+                                <div className="mt-2 space-y-2">
+                                    <div className="flex items-center gap-1.5 bg-background p-1.5 rounded border border-border">
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            value={inviteLink}
+                                            className="bg-transparent text-[11px] text-muted-foreground flex-1 outline-none select-all truncate px-1"
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={handleCopyInviteLink}
+                                            className="h-6 w-6 text-foreground hover:bg-muted shrink-0"
+                                            title="Copiar link"
+                                        >
+                                            {hasCopiedLink ? (
+                                                <LuCheck className="h-3.5 w-3.5 text-emerald-500" />
+                                            ) : (
+                                                <LuCopy className="h-3.5 w-3.5" />
+                                            )}
+                                        </Button>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] text-muted-foreground">
+                                            Qualquer pessoa com o link pode
+                                            entrar
+                                        </span>
+                                        <button
+                                            type="button"
+                                            disabled={isLoadingLink}
+                                            onClick={() =>
+                                                handleFetchInviteLink(true)
+                                            }
+                                            className="text-[10px] text-destructive hover:underline disabled:opacity-50"
+                                        >
+                                            Revogar / Redefinir Link
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     <Separator />
